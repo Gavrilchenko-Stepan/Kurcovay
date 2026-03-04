@@ -90,6 +90,13 @@
             this.panelMessageInput.SuspendLayout();
             this.panelStatusBar.SuspendLayout();
             this.SuspendLayout();
+
+            this.btnNewChat.Click += this.BtnNewChat_Click;
+            this.btnSettings.Click += this.BtnSettings_Click;
+            this.btnLogout.Click += this.BtnLogout_Click;
+            this.btnSend.Click += this.BtnSend_Click;
+            this.txtMessage.KeyDown += this.TxtMessage_KeyDown;
+            this.lstChats.SelectedIndexChanged += this.LstChats_SelectedIndexChanged;
             // 
             // panelTop
             // 
@@ -166,7 +173,7 @@
             this.btnNewChat.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnNewChat.Font = new System.Drawing.Font("Segoe UI", 10F);
             this.btnNewChat.ForeColor = System.Drawing.Color.White;
-            this.btnNewChat.Location = new System.Drawing.Point(1900, 5);
+            this.btnNewChat.Location = new System.Drawing.Point(950, 20);
             this.btnNewChat.Name = "btnNewChat";
             this.btnNewChat.Size = new System.Drawing.Size(120, 30);
             this.btnNewChat.TabIndex = 4;
@@ -183,7 +190,7 @@
             this.btnSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSettings.Font = new System.Drawing.Font("Segoe UI", 14F);
             this.btnSettings.ForeColor = System.Drawing.Color.White;
-            this.btnSettings.Location = new System.Drawing.Point(2030, 0);
+            this.btnSettings.Location = new System.Drawing.Point(1080, 15);
             this.btnSettings.Name = "btnSettings";
             this.btnSettings.Size = new System.Drawing.Size(40, 40);
             this.btnSettings.TabIndex = 5;
@@ -199,7 +206,7 @@
             this.btnLogout.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLogout.Font = new System.Drawing.Font("Segoe UI", 14F);
             this.btnLogout.ForeColor = System.Drawing.Color.White;
-            this.btnLogout.Location = new System.Drawing.Point(2080, 0);
+            this.btnLogout.Location = new System.Drawing.Point(1130, 15);
             this.btnLogout.Name = "btnLogout";
             this.btnLogout.Size = new System.Drawing.Size(40, 40);
             this.btnLogout.TabIndex = 6;
