@@ -19,30 +19,58 @@ namespace Messenger.Client
         private List<Chat> chats = new List<Chat>();
         private Chat currentChat;
         private Dictionary<int, List<Shared.Message>> messages = new Dictionary<int, List<Shared.Message>>();
+        private Timer refreshTimer;
 
         public MainForm()
         {
             InitializeComponent();
+            InitializeCustomStyles();
+            this.Load += MainForm_Load;
+            this.FormClosing += MainForm_FormClosing;
+        }
+
+        private void InitializeCustomStyles()
+        {
             this.Font = new Font("Segoe UI", 10F);
             this.BackColor = Color.FromArgb(240, 242, 245);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.MinimumSize = new Size(1000, 600);
 
-            // Подписываемся на событие загрузки формы
-            this.Load += MainForm_Load;
-            this.FormClosing += MainForm_FormClosing;
+            // Настройка списков
+            lstChats.DrawMode = DrawMode.OwnerDrawFixed;
+            lstChats.DrawItem += LstChats_DrawItem;
+            lstChats.ItemHeight = 70;
+            lstChats.SelectedIndexChanged += LstChats_SelectedIndexChanged;
+
+            lstMessages.DrawMode = DrawMode.OwnerDrawFixed;
+            lstMessages.DrawItem += LstMessages_DrawItem;
+            lstMessages.ItemHeight = 70;
+
+            // Подписка на события кнопок
+            btnSend.Click += BtnSend_Click;
+            btnNewChat.Click += BtnNewChat_Click;
+            btnLogout.Click += BtnLogout_Click;
+            btnSettings.Click += BtnSettings_Click;
+
+            txtMessage.KeyDown += TxtMessage_KeyDown;
+            txtSearchChats.TextChanged += TxtSearchChats_TextChanged;
+            txtSearchChats.Enter += TxtSearchChats_Enter;
+            txtSearchChats.Leave += TxtSearchChats_Leave;
+
+            // Таймер для обновления статусов
+            refreshTimer = new Timer();
+            refreshTimer.Interval = 30000; // 30 секунд
+            refreshTimer.Tick += RefreshTimer_Tick;
         }
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            // При загрузке скрываем главную форму и показываем форму входа
             this.Hide();
             ShowLoginForm();
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // Если пользователь закрывает форму через крестик
             if (e.CloseReason == CloseReason.UserClosing)
             {
                 var result = MessageBox.Show("Вы действительно хотите выйти из приложения?",
@@ -57,8 +85,16 @@ namespace Messenger.Client
                 }
             }
 
-            // Отключаемся от сервера при закрытии
+            refreshTimer?.Stop();
             networkClient?.Disconnect();
+        }
+
+        private void RefreshTimer_Tick(object sender, EventArgs e)
+        {
+            if (networkClient != null && networkClient.IsConnected)
+            {
+                LoadChats();
+            }
         }
 
         private void ShowLoginForm()
@@ -69,24 +105,18 @@ namespace Messenger.Client
 
                 if (result == DialogResult.OK)
                 {
-                    // Успешный вход - обновляем данные
                     currentUser = loginForm.CurrentUser;
                     networkClient = loginForm.NetworkClient;
                     networkClient.OnPacketReceived += OnPacketReceived;
                     networkClient.OnDisconnected += OnDisconnected;
 
-                    // Обновляем интерфейс
                     UpdateUIAfterLogin();
-
-                    // Загружаем чаты
                     LoadChats();
-
-                    // Показываем главную форму
+                    refreshTimer.Start();
                     this.Show();
                 }
                 else
                 {
-                    // Если вход отменен или ошибка - закрываем приложение
                     Application.Exit();
                 }
             }
@@ -99,6 +129,7 @@ namespace Messenger.Client
             lblUserStatus.Text = "● Онлайн";
             lblUserStatus.ForeColor = Color.FromArgb(76, 175, 80);
             lblConnectionStatus.Text = "● Подключено к серверу";
+            lblConnectionStatus.ForeColor = Color.FromArgb(76, 175, 80);
             lblServerInfo.Text = $"Сервер: {networkClient.ServerIP}:8888";
         }
 
@@ -156,6 +187,11 @@ namespace Messenger.Client
                         chats.Add(newChat);
                         UpdateChatsList();
                         break;
+
+                    case Shared.CommandType.AvailableUsersList:
+                        var users = JsonSerializer.Deserialize<List<User>>(packet.Data.ToString());
+                        // Здесь можно обработать список пользователей для NewChatForm
+                        break;
                 }
             }
             catch (Exception ex)
@@ -175,6 +211,10 @@ namespace Messenger.Client
             lblConnectionStatus.Text = "● Отключено от сервера";
             lblConnectionStatus.ForeColor = Color.Red;
             btnSend.Enabled = false;
+            refreshTimer.Stop();
+
+            MessageBox.Show("Соединение с сервером потеряно!", "Ошибка",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void UpdateChatsList()
@@ -211,6 +251,10 @@ namespace Messenger.Client
             if (chat.Type == ChatType.Department)
             {
                 lblChatInfo.Text = $"Внутренний чат • {chat.Participants.Count} участников";
+            }
+            else if (chat.Type == ChatType.Private)
+            {
+                lblChatInfo.Text = $"Личный чат";
             }
             else
             {
@@ -263,7 +307,9 @@ namespace Messenger.Client
             using (var brush = new SolidBrush(backColor))
                 e.Graphics.FillRectangle(brush, e.Bounds);
 
-            string icon = chat.Type == ChatType.Department ? "🏢" : "👥";
+            string icon = chat.Type == ChatType.Department ? "🏢" :
+                         (chat.Type == ChatType.Private ? "👤" : "👥");
+
             using (var font = new Font("Segoe UI", 16))
                 e.Graphics.DrawString(icon, font, Brushes.Gray, e.Bounds.X + 10, e.Bounds.Y + 15);
 
@@ -372,6 +418,7 @@ namespace Messenger.Client
                 {
                     lstMessages.Items.Add(message);
                     lstMessages.TopIndex = lstMessages.Items.Count - 1;
+                    System.Media.SystemSounds.Asterisk.Play();
                 }
             }
         }
@@ -432,6 +479,14 @@ namespace Messenger.Client
         {
             using (var newChatForm = new NewChatForm(currentUser.Id, currentUser.Department))
             {
+                // Запрашиваем список пользователей для чата
+                networkClient.SendPacket(new NetworkPacket
+                {
+                    Command = Shared.CommandType.GetAvailableUsers,
+                    Data = currentUser.Id
+                });
+
+                // Здесь нужно будет обработать ответ и передать данные в форму
                 newChatForm.ShowDialog();
             }
         }
@@ -442,7 +497,6 @@ namespace Messenger.Client
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        // ИСПРАВЛЕННЫЙ МЕТОД ВЫХОДА
         private void BtnLogout_Click(object sender, EventArgs e)
         {
             var result = MessageBox.Show("Вы действительно хотите выйти из системы?",
@@ -452,57 +506,17 @@ namespace Messenger.Client
 
             if (result == DialogResult.Yes)
             {
-                // Отключаемся от сервера
+                refreshTimer.Stop();
                 networkClient?.Disconnect();
 
-                // Очищаем обработчики событий
                 if (networkClient != null)
                 {
                     networkClient.OnPacketReceived -= OnPacketReceived;
                     networkClient.OnDisconnected -= OnDisconnected;
                 }
 
-                // Скрываем главную форму
                 this.Hide();
-
-                // Создаем новую форму входа
-                using (var loginForm = new LoginForm())
-                {
-                    var loginResult = loginForm.ShowDialog();
-
-                    if (loginResult == DialogResult.OK)
-                    {
-                        // Обновляем данные
-                        currentUser = loginForm.CurrentUser;
-                        networkClient = loginForm.NetworkClient;
-                        networkClient.OnPacketReceived += OnPacketReceived;
-                        networkClient.OnDisconnected += OnDisconnected;
-
-                        // Обновляем интерфейс
-                        lblUserName.Text = currentUser.FullName;
-                        lblUserDepartment.Text = currentUser.Department;
-                        lblUserStatus.Text = "● Онлайн";
-                        lblUserStatus.ForeColor = Color.FromArgb(76, 175, 80);
-                        lblConnectionStatus.Text = "● Подключено к серверу";
-                        lblServerInfo.Text = $"Сервер: {networkClient.ServerIP}:8888";
-
-                        // Очищаем старые данные
-                        chats.Clear();
-                        messages.Clear();
-                        UpdateChatsList();
-
-                        // Загружаем новые чаты
-                        LoadChats();
-
-                        // Показываем главную форму
-                        this.Show();
-                    }
-                    else
-                    {
-                        // Если вход отменен - закрываем приложение
-                        Application.Exit();
-                    }
-                }
+                ShowLoginForm();
             }
         }
 

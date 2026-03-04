@@ -21,6 +21,15 @@ namespace Messenger.Shared
         CreateChat,
         ChatCreated,
         GetDepartments,
-        DepartmentsList
+        DepartmentsList,
+
+        GetAvailableUsers,
+        AvailableUsersList,
+        CreatePrivateChat,
+        SearchMessages,
+        SearchResults,
+        MarkAsRead,
+        TypingIndicator,
+        UserTyping
     }
 }

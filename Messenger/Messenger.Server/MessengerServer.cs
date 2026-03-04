@@ -124,6 +124,18 @@ namespace Messenger.Server
             }
         }
 
+        public void BroadcastToUser(int userId, NetworkPacket packet)
+        {
+            lock (clientsLock)
+            {
+                var client = clients.FirstOrDefault(c => c.User?.Id == userId);
+                if (client != null)
+                {
+                    client.SendPacket(packet);
+                }
+            }
+        }
+
         public void RemoveClient(ClientHandler client)
         {
             lock (clientsLock)

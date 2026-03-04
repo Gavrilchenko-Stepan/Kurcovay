@@ -95,6 +95,18 @@ namespace Messenger.Server
                 case CommandType.Logout:
                     Disconnect();
                     break;
+
+                case CommandType.GetAvailableUsers:
+                    HandleGetAvailableUsers(packet);
+                    break;
+
+                case CommandType.CreatePrivateChat:
+                    HandleCreatePrivateChat(packet);
+                    break;
+
+                case CommandType.SearchMessages:
+                    HandleSearchMessages(packet);
+                    break;
             }
         }
 
@@ -272,6 +284,71 @@ namespace Messenger.Server
             {
                 server.Log($"Ошибка при отключении: {ex.Message}");
             }
+        }
+
+        private void HandleGetAvailableUsers(NetworkPacket packet)
+        {
+            if (User == null) return;
+
+            int currentUserId = Convert.ToInt32(packet.Data);
+            var users = db.GetAvailableUsersForChat(currentUserId);
+
+            SendPacket(new NetworkPacket
+            {
+                Command = CommandType.AvailableUsersList,
+                Data = users
+            });
+        }
+
+        private void HandleCreatePrivateChat(NetworkPacket packet)
+        {
+            if (User == null) return;
+
+            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(packet.Data.ToString());
+            int otherUserId = data["otherUserId"];
+
+            var newChat = db.CreatePrivateChat(User.Id, otherUserId);
+
+            SendPacket(new NetworkPacket
+            {
+                Command = CommandType.ChatCreated,
+                Data = newChat
+            });
+
+            // Отправить обновленный список чатов обоим пользователям
+            var user1Chats = db.GetUserChats(User.Id);
+            var user2Chats = db.GetUserChats(otherUserId);
+
+            var chatListPacket = new NetworkPacket
+            {
+                Command = CommandType.ChatsList,
+                Data = user1Chats
+            };
+            SendPacket(chatListPacket);
+
+            // Отправить второму пользователю, если он онлайн
+            server.BroadcastToUser(otherUserId, new NetworkPacket
+            {
+                Command = CommandType.ChatsList,
+                Data = user2Chats
+            });
+        }
+
+        private void HandleSearchMessages(NetworkPacket packet)
+        {
+            if (User == null) return;
+
+            var data = JsonSerializer.Deserialize<Dictionary<string, object>>(packet.Data.ToString());
+            int chatId = Convert.ToInt32(data["chatId"]);
+            string searchText = data["text"].ToString();
+
+            var messages = db.SearchMessages(chatId, searchText);
+
+            SendPacket(new NetworkPacket
+            {
+                Command = CommandType.SearchResults,
+                Data = messages
+            });
         }
     }
 }

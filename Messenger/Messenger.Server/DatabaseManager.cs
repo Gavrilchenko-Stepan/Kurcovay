@@ -676,6 +676,252 @@ namespace Messenger.Server
                 }
             }
         }
+
+        #region Дополнительные методы для чатов
+
+        /// <summary>
+        /// Получить список пользователей для создания личного чата
+        /// </summary>
+        public List<User> GetAvailableUsersForChat(int currentUserId)
+        {
+            var users = new List<User>();
+            lock (dbLock)
+            {
+                string query = @"
+            SELECT u.id, u.username, u.full_name, u.department_id, u.position, 
+                   d.name as department_name, us.is_online, us.last_seen
+            FROM users u
+            JOIN departments d ON u.department_id = d.id
+            LEFT JOIN user_status us ON u.id = us.user_id
+            WHERE u.id != @currentUserId
+            ORDER BY us.is_online DESC, u.full_name";
+
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@currentUserId", currentUserId);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            users.Add(new User
+                            {
+                                Id = reader.GetInt32(0),
+                                Username = reader.GetString(1),
+                                FullName = reader.GetString(2),
+                                DepartmentId = reader.GetInt32(3),
+                                Position = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                Department = reader.GetString(5),
+                                IsOnline = !reader.IsDBNull(6) && reader.GetBoolean(6),
+                                LastSeen = reader.IsDBNull(7) ? (DateTime?)null : reader.GetDateTime(7)
+                            });
+                        }
+                    }
+                }
+            }
+            return users;
+        }
+
+        /// <summary>
+        /// Создать личный чат между двумя пользователями
+        /// </summary>
+        public Chat CreatePrivateChat(int user1Id, int user2Id)
+        {
+            lock (dbLock)
+            {
+                // Проверяем, существует ли уже такой чат
+                string checkQuery = @"
+            SELECT c.id 
+            FROM chats c
+            JOIN chat_participants cp1 ON c.id = cp1.chat_id
+            JOIN chat_participants cp2 ON c.id = cp2.chat_id
+            WHERE c.type = 'Private' 
+              AND cp1.user_id = @user1Id 
+              AND cp2.user_id = @user2Id
+              AND cp1.user_id != cp2.user_id";
+
+                using (var checkCmd = new SQLiteCommand(checkQuery, connection))
+                {
+                    checkCmd.Parameters.AddWithValue("@user1Id", user1Id);
+                    checkCmd.Parameters.AddWithValue("@user2Id", user2Id);
+
+                    var existingId = checkCmd.ExecuteScalar();
+                    if (existingId != null)
+                    {
+                        // Чат уже существует
+                        int chatId = Convert.ToInt32(existingId);
+                        return new Chat
+                        {
+                            Id = chatId,
+                            Name = GetChatName(chatId, user1Id),
+                            Type = ChatType.Private,
+                            Participants = GetChatParticipants(chatId)
+                        };
+                    }
+                }
+
+                // Создаем новый чат
+                string insertQuery = @"
+            INSERT INTO chats (name, type, created_by) 
+            VALUES (@name, 'Private', @createdBy);
+            SELECT last_insert_rowid();";
+
+                string chatName = $"Чат {user1Id}-{user2Id}"; // Временное имя
+
+                using (var cmd = new SQLiteCommand(insertQuery, connection))
+                {
+                    cmd.Parameters.AddWithValue("@name", chatName);
+                    cmd.Parameters.AddWithValue("@createdBy", user1Id);
+
+                    int chatId = Convert.ToInt32(cmd.ExecuteScalar());
+
+                    // Добавляем участников
+                    string partQuery = "INSERT INTO chat_participants (chat_id, user_id) VALUES (@chatId, @userId)";
+
+                    using (var partCmd = new SQLiteCommand(partQuery, connection))
+                    {
+                        partCmd.Parameters.AddWithValue("@chatId", chatId);
+                        partCmd.Parameters.AddWithValue("@userId", user1Id);
+                        partCmd.ExecuteNonQuery();
+
+                        partCmd.Parameters["@userId"].Value = user2Id;
+                        partCmd.ExecuteNonQuery();
+                    }
+
+                    return new Chat
+                    {
+                        Id = chatId,
+                        Name = GetChatName(chatId, user1Id),
+                        Type = ChatType.Private,
+                        Participants = GetChatParticipants(chatId)
+                    };
+                }
+            }
+        }
+
+        /// <summary>
+        /// Получить название чата для отображения
+        /// </summary>
+        private string GetChatName(int chatId, int currentUserId)
+        {
+            string query = @"
+        SELECT u.full_name 
+        FROM users u
+        JOIN chat_participants cp ON u.id = cp.user_id
+        WHERE cp.chat_id = @chatId AND u.id != @currentUserId
+        LIMIT 1";
+
+            using (var cmd = new SQLiteCommand(query, connection))
+            {
+                cmd.Parameters.AddWithValue("@chatId", chatId);
+                cmd.Parameters.AddWithValue("@currentUserId", currentUserId);
+
+                var result = cmd.ExecuteScalar();
+                return result?.ToString() ?? "Личный чат";
+            }
+        }
+
+        #endregion
+
+        #region Методы для поиска
+
+        /// <summary>
+        /// Поиск сообщений в чате
+        /// </summary>
+        public List<Message> SearchMessages(int chatId, string searchText)
+        {
+            var messages = new List<Message>();
+            lock (dbLock)
+            {
+                string query = @"
+            SELECT m.id, m.chat_id, m.sender_id, m.text, m.sent_at, m.is_read,
+                   u.full_name
+            FROM messages m
+            JOIN users u ON m.sender_id = u.id
+            WHERE m.chat_id = @chatId AND m.text LIKE @searchText
+            ORDER BY m.sent_at DESC
+            LIMIT 50";
+
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@chatId", chatId);
+                    cmd.Parameters.AddWithValue("@searchText", $"%{searchText}%");
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            messages.Add(new Message
+                            {
+                                Id = reader.GetInt32(0),
+                                ChatId = reader.GetInt32(1),
+                                SenderId = reader.GetInt32(2),
+                                SenderName = reader.GetString(6),
+                                Text = reader.GetString(3),
+                                SentAt = reader.GetDateTime(4),
+                                IsRead = reader.GetBoolean(5)
+                            });
+                        }
+                    }
+                }
+            }
+            return messages;
+        }
+
+        #endregion
+
+        #region Методы для статистики
+
+        /// <summary>
+        /// Получить количество непрочитанных сообщений
+        /// </summary>
+        public int GetTotalUnreadCount(int userId)
+        {
+            lock (dbLock)
+            {
+                string query = @"
+            SELECT SUM(
+                (SELECT COUNT(*) FROM messages m 
+                 WHERE m.chat_id = c.id 
+                 AND m.id > COALESCE(
+                     (SELECT last_read_message_id FROM user_chat_read 
+                      WHERE user_id = @userId AND chat_id = c.id), 0))
+            ) as total_unread
+            FROM chats c
+            JOIN chat_participants cp ON c.id = cp.chat_id
+            WHERE cp.user_id = @userId";
+
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    var result = cmd.ExecuteScalar();
+                    return result != DBNull.Value ? Convert.ToInt32(result) : 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Получить онлайн пользователей в отделе
+        /// </summary>
+        public int GetOnlineUsersInDepartment(int departmentId)
+        {
+            lock (dbLock)
+            {
+                string query = @"
+            SELECT COUNT(*) 
+            FROM users u
+            JOIN user_status us ON u.id = us.user_id
+            WHERE u.department_id = @deptId AND us.is_online = 1";
+
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@deptId", departmentId);
+                    return Convert.ToInt32(cmd.ExecuteScalar());
+                }
+            }
+        }
+
+        #endregion
     }
 
 
