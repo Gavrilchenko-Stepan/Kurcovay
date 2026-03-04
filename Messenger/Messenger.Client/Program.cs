@@ -14,9 +14,28 @@ namespace Messenger.Client
         [STAThread]
         static void Main()
         {
+            // Добавляем обработчик непойманных исключений
+            Application.ThreadException += (sender, e) =>
+            {
+                MessageBox.Show($"Ошибка: {e.Exception.Message}\n\n{e.Exception.StackTrace}",
+                    "Необработанное исключение",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            };
+
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+            {
+                MessageBox.Show($"Ошибка: {((Exception)e.ExceptionObject).Message}",
+                    "Критическая ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            };
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+
+            // Открываем окно вывода для отладки
+            Console.WriteLine("🚀 Запуск приложения...");
+
+            Application.Run(new MainForm());
         }
     }
 }

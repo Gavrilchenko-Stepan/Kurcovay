@@ -79,14 +79,33 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Form1.cs">
+    <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Form1.Designer.cs">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <Compile Include="LoginForm.Designer.cs">
+      <DependentUpon>LoginForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="NetworkClient.cs" />
+    <Compile Include="NewChatForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="NewChatForm.Designer.cs">
+      <DependentUpon>NewChatForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="NewChatForm.resx">
+      <DependentUpon>NewChatForm.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
@@ -111,6 +130,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Messenger.Server\Messenger.Server.csproj">
+      <Project>{202574CB-25BB-4C95-83D3-3BDE2F037C28}</Project>
+      <Name>Messenger.Server</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Messenger.Shared\Messenger.Shared.csproj">
       <Project>{33b920fc-27e0-4ecb-ab8f-a39062946461}</Project>
       <Name>Messenger.Shared</Name>
