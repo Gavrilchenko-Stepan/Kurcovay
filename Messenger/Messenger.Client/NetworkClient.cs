@@ -20,19 +20,16 @@ namespace Messenger.Client
         private bool isConnected;
         private Thread receiveThread;
 
-        // Добавляем свойство ServerIP
         public string ServerIP { get; private set; }
-
         public event Action<NetworkPacket> OnPacketReceived;
         public event Action OnDisconnected;
-
         public bool IsConnected => isConnected;
 
         public async Task<bool> Connect(string serverIP, int port = 8888)
         {
             try
             {
-                ServerIP = serverIP; // Сохраняем IP сервера
+                ServerIP = serverIP;
                 client = new TcpClient();
                 await client.ConnectAsync(serverIP, port);
 
@@ -41,7 +38,6 @@ namespace Messenger.Client
                 writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
 
                 isConnected = true;
-
                 receiveThread = new Thread(ReceiveLoop);
                 receiveThread.IsBackground = true;
                 receiveThread.Start();
@@ -65,16 +61,15 @@ namespace Messenger.Client
                         string json = reader.ReadLine();
                         if (!string.IsNullOrEmpty(json))
                         {
-                            Console.WriteLine($"📨 Получено: {json.Substring(0, Math.Min(100, json.Length))}...");
                             var packet = JsonSerializer.Deserialize<NetworkPacket>(json);
+                            Console.WriteLine($"Получен JSON: {json}");
                             OnPacketReceived?.Invoke(packet);
                         }
                     }
                     Thread.Sleep(50);
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Console.WriteLine($"❌ Ошибка в ReceiveLoop: {ex.Message}");
                     Disconnect();
                     break;
                 }
@@ -100,21 +95,18 @@ namespace Messenger.Client
         public void Disconnect()
         {
             isConnected = false;
-
             try
             {
                 if (isConnected)
                 {
                     SendPacket(new NetworkPacket { Command = CommandType.Logout });
                 }
-
                 reader?.Close();
                 writer?.Close();
                 stream?.Close();
                 client?.Close();
             }
             catch { }
-
             OnDisconnected?.Invoke();
         }
     }

@@ -16,65 +16,73 @@ namespace Messenger.Client
     public partial class LoginForm : Form
     {
         private NetworkClient networkClient;
-
         public User CurrentUser { get; private set; }
         public NetworkClient NetworkClient => networkClient;
 
         public LoginForm()
         {
             InitializeComponent();
-            this.Font = new Font("Segoe UI", 10F, FontStyle.Regular);
-            this.BackColor = Color.FromArgb(240, 242, 245);
-            this.StartPosition = FormStartPosition.CenterScreen;
-
+            ApplyFuturisticStyle();
             networkClient = new NetworkClient();
             networkClient.OnPacketReceived += OnPacketReceived;
             networkClient.OnDisconnected += OnDisconnected;
-
             this.AcceptButton = btnLogin;
-            CreateLogo();
+            btnLogin.Click += BtnLogin_Click;
+            btnCancel.Click += BtnCancel_Click;
         }
 
-        private void CreateLogo()
+        private void ApplyFuturisticStyle()
         {
-            var bmp = new Bitmap(120, 120);
-            using (var g = Graphics.FromImage(bmp))
-            {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.Clear(Color.FromArgb(63, 81, 181));
+            this.BackColor = Color.FromArgb(30, 30, 46);
+            this.ForeColor = Color.White;
+            panelMain.BackColor = Color.FromArgb(45, 45, 58);
+            lblTitle.ForeColor = Color.FromArgb(0, 229, 255);
+            lblSubtitle.ForeColor = Color.FromArgb(180, 180, 200);
+            lblServer.ForeColor = Color.White;
+            lblUsername.ForeColor = Color.White;
+            lblPassword.ForeColor = Color.White;
 
-                using (var font = new Font("Segoe UI", 48, FontStyle.Bold))
-                using (var brush = new SolidBrush(Color.White))
-                {
-                    var sf = new StringFormat
-                    {
-                        Alignment = StringAlignment.Center,
-                        LineAlignment = StringAlignment.Center
-                    };
-                    g.DrawString("M", font, brush, new Rectangle(0, 0, 120, 120), sf);
-                }
-            }
-            picLogo.Image = bmp;
+            txtServerIP.BackColor = Color.FromArgb(60, 60, 80);
+            txtServerIP.ForeColor = Color.White;
+            txtServerIP.BorderStyle = BorderStyle.FixedSingle;
+
+            txtUsername.BackColor = Color.FromArgb(60, 60, 80);
+            txtUsername.ForeColor = Color.White;
+            txtUsername.BorderStyle = BorderStyle.FixedSingle;
+
+            txtPassword.BackColor = Color.FromArgb(60, 60, 80);
+            txtPassword.ForeColor = Color.White;
+            txtPassword.BorderStyle = BorderStyle.FixedSingle;
+
+            panelLine1.BackColor = Color.FromArgb(0, 229, 255);
+            panelLine2.BackColor = Color.FromArgb(0, 229, 255);
+            panelLine3.BackColor = Color.FromArgb(0, 229, 255);
+
+            btnLogin.BackColor = Color.FromArgb(0, 229, 255);
+            btnLogin.ForeColor = Color.Black;
+            btnLogin.FlatStyle = FlatStyle.Flat;
+            btnLogin.FlatAppearance.BorderSize = 0;
+
+            btnCancel.BackColor = Color.Transparent;
+            btnCancel.ForeColor = Color.FromArgb(0, 229, 255);
+            btnCancel.FlatStyle = FlatStyle.Flat;
+            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(0, 229, 255);
         }
 
         private async void BtnLogin_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(txtServerIP.Text) ||
-                string.IsNullOrWhiteSpace(txtUsername.Text) ||
-                string.IsNullOrWhiteSpace(txtPassword.Text))
+            if (string.IsNullOrWhiteSpace(txtServerIP.Text) || string.IsNullOrWhiteSpace(txtUsername.Text) || string.IsNullOrWhiteSpace(txtPassword.Text))
             {
                 ShowError("Заполните все поля");
                 return;
             }
 
             btnLogin.Enabled = false;
-            lblStatus.Text = "Подключение к серверу...";
-            lblStatus.ForeColor = Color.Gray;
+            lblStatus.Text = "Подключение...";
             lblStatus.Visible = true;
             lblError.Visible = false;
 
             bool connected = await networkClient.Connect(txtServerIP.Text);
-
             if (!connected)
             {
                 ShowError("Не удалось подключиться к серверу");
@@ -83,15 +91,10 @@ namespace Messenger.Client
             }
 
             lblStatus.Text = "Отправка данных...";
-
             networkClient.SendPacket(new NetworkPacket
             {
                 Command = Shared.CommandType.Login,
-                Data = new
-                {
-                    username = txtUsername.Text,
-                    password = txtPassword.Text
-                }
+                Data = new { username = txtUsername.Text, password = txtPassword.Text }
             });
         }
 
@@ -105,28 +108,19 @@ namespace Messenger.Client
 
             if (packet.Command == Shared.CommandType.LoginResponse)
             {
-                // Получаем JsonElement
-                var jsonElement = (JsonElement)packet.Data;
-
-                // Извлекаем значения через JsonElement
-                bool success = jsonElement.GetProperty("success").GetBoolean();
-
+                var json = (JsonElement)packet.Data;
+                bool success = json.GetProperty("success").GetBoolean();
                 if (success)
                 {
-                    // Получаем пользователя как JsonElement
-                    var userElement = jsonElement.GetProperty("user");
-
-                    // Конвертируем в строку и десериализуем
-                    string userJson = userElement.GetRawText();
-                    CurrentUser = JsonSerializer.Deserialize<User>(userJson);
-
+                    var userElem = json.GetProperty("user");
+                    CurrentUser = JsonSerializer.Deserialize<User>(userElem.GetRawText());
                     DialogResult = DialogResult.OK;
                     Close();
                 }
                 else
                 {
-                    string message = jsonElement.GetProperty("message").GetString();
-                    ShowError(message);
+                    string msg = json.GetProperty("message").GetString();
+                    ShowError(msg);
                     networkClient.Disconnect();
                     btnLogin.Enabled = true;
                 }
@@ -140,18 +134,14 @@ namespace Messenger.Client
                 Invoke(new Action(OnDisconnected));
                 return;
             }
-
             if (!IsDisposed)
             {
-                ShowError("Соединение с сервером потеряно");
+                ShowError("Соединение потеряно");
                 btnLogin.Enabled = true;
             }
         }
 
-        private void BtnCancel_Click(object sender, EventArgs e)
-        {
-            this.Close();
-        }
+        private void BtnCancel_Click(object sender, EventArgs e) => Close();
 
         private void ShowError(string message)
         {

@@ -27,10 +27,8 @@ namespace Messenger.Server
         {
             try
             {
-                // Инициализация БД
                 db.InitializeDatabase();
 
-                // Запуск TCP сервера
                 int port = 8888;
                 tcpListener = new TcpListener(IPAddress.Any, port);
                 tcpListener.Start();
@@ -54,12 +52,8 @@ namespace Messenger.Server
         {
             var host = Dns.GetHostEntry(Dns.GetHostName());
             foreach (var ip in host.AddressList)
-            {
                 if (ip.AddressFamily == AddressFamily.InterNetwork)
-                {
                     return ip.ToString();
-                }
-            }
             return "127.0.0.1";
         }
 
@@ -73,9 +67,7 @@ namespace Messenger.Server
                     var clientHandler = new ClientHandler(tcpClient, this, db);
 
                     lock (clientsLock)
-                    {
                         clients.Add(clientHandler);
-                    }
 
                     var clientThread = new Thread(clientHandler.HandleClient);
                     clientThread.IsBackground = true;
@@ -97,13 +89,8 @@ namespace Messenger.Server
             {
                 foreach (var client in clients)
                 {
-                    if (client.User != null && client.User.Id != excludeUserId)
-                    {
-                        if (db.UserHasAccessToChat(client.User.Id, chatId))
-                        {
-                            client.SendPacket(packet);
-                        }
-                    }
+                    if (client.User != null && client.User.Id != excludeUserId && db.UserHasAccessToChat(client.User.Id, chatId))
+                        client.SendPacket(packet);
                 }
             }
         }
@@ -114,12 +101,8 @@ namespace Messenger.Server
             {
                 foreach (var client in clients)
                 {
-                    if (client.User != null &&
-                        client.User.Department == department &&
-                        client.User.Id != excludeUserId)
-                    {
+                    if (client.User != null && client.User.Department == department && client.User.Id != excludeUserId)
                         client.SendPacket(packet);
-                    }
                 }
             }
         }
@@ -129,10 +112,7 @@ namespace Messenger.Server
             lock (clientsLock)
             {
                 var client = clients.FirstOrDefault(c => c.User?.Id == userId);
-                if (client != null)
-                {
-                    client.SendPacket(packet);
-                }
+                client?.SendPacket(packet);
             }
         }
 
@@ -153,16 +133,12 @@ namespace Messenger.Server
         public void Stop()
         {
             isRunning = false;
-
             lock (clientsLock)
             {
                 foreach (var client in clients)
-                {
                     client.Disconnect();
-                }
                 clients.Clear();
             }
-
             tcpListener?.Stop();
             db.Close();
             Log("Сервер остановлен");

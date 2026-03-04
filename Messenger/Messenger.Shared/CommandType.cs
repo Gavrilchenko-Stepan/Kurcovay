@@ -26,10 +26,6 @@ namespace Messenger.Shared
         GetAvailableUsers,
         AvailableUsersList,
         CreatePrivateChat,
-        SearchMessages,
-        SearchResults,
-        MarkAsRead,
-        TypingIndicator,
-        UserTyping
+        CreateGroupChat
     }
 }

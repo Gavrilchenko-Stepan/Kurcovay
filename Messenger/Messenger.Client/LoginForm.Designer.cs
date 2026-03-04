@@ -64,11 +64,11 @@ namespace Messenger.Client
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Text = "Вход в систему";
-            this.BackColor = System.Drawing.Color.White;
+            this.BackColor = System.Drawing.Color.FromArgb(30, 30, 46);          // тёмный фон
             this.Font = new System.Drawing.Font("Segoe UI", 10F);
 
             // panelMain
-            this.panelMain.BackColor = System.Drawing.Color.White;
+            this.panelMain.BackColor = System.Drawing.Color.FromArgb(45, 45, 58); // панель чуть светлее
             this.panelMain.Controls.Add(this.picLogo);
             this.panelMain.Controls.Add(this.lblTitle);
             this.panelMain.Controls.Add(this.lblSubtitle);
@@ -92,7 +92,7 @@ namespace Messenger.Client
             this.panelMain.Size = new System.Drawing.Size(420, 560);
 
             // picLogo
-            this.picLogo.BackColor = System.Drawing.Color.FromArgb(63, 81, 181);
+            this.picLogo.BackColor = System.Drawing.Color.FromArgb(0, 229, 255); // акцентный цвет
             this.picLogo.Location = new System.Drawing.Point(150, 30);
             this.picLogo.Name = "picLogo";
             this.picLogo.Size = new System.Drawing.Size(120, 120);
@@ -102,7 +102,7 @@ namespace Messenger.Client
 
             // lblTitle
             this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 20F, System.Drawing.FontStyle.Bold);
-            this.lblTitle.ForeColor = System.Drawing.Color.FromArgb(63, 81, 181);
+            this.lblTitle.ForeColor = System.Drawing.Color.FromArgb(0, 229, 255); // акцент
             this.lblTitle.Location = new System.Drawing.Point(30, 160);
             this.lblTitle.Size = new System.Drawing.Size(360, 40);
             this.lblTitle.Text = "Добро пожаловать";
@@ -110,7 +110,7 @@ namespace Messenger.Client
 
             // lblSubtitle
             this.lblSubtitle.Font = new System.Drawing.Font("Segoe UI", 11F);
-            this.lblSubtitle.ForeColor = System.Drawing.Color.FromArgb(100, 100, 100);
+            this.lblSubtitle.ForeColor = System.Drawing.Color.FromArgb(180, 180, 200); // сероватый
             this.lblSubtitle.Location = new System.Drawing.Point(30, 200);
             this.lblSubtitle.Size = new System.Drawing.Size(360, 30);
             this.lblSubtitle.Text = "Корпоративный мессенджер";
@@ -118,89 +118,93 @@ namespace Messenger.Client
 
             // lblServer
             this.lblServer.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.lblServer.ForeColor = System.Drawing.Color.FromArgb(60, 60, 60);
+            this.lblServer.ForeColor = System.Drawing.Color.White;
             this.lblServer.Location = new System.Drawing.Point(30, 250);
             this.lblServer.Size = new System.Drawing.Size(100, 20);
             this.lblServer.Text = "Сервер:";
 
             // txtServerIP
-            this.txtServerIP.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.txtServerIP.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
+            this.txtServerIP.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.txtServerIP.Font = new System.Drawing.Font("Segoe UI", 11F);
+            this.txtServerIP.ForeColor = System.Drawing.Color.White;
             this.txtServerIP.Location = new System.Drawing.Point(30, 273);
             this.txtServerIP.Size = new System.Drawing.Size(360, 20);
             this.txtServerIP.Text = "127.0.0.1";
 
             // panelLine1
-            this.panelLine1.BackColor = System.Drawing.Color.FromArgb(200, 200, 200);
+            this.panelLine1.BackColor = System.Drawing.Color.FromArgb(0, 229, 255); // акцентная линия
             this.panelLine1.Location = new System.Drawing.Point(30, 295);
             this.panelLine1.Size = new System.Drawing.Size(360, 1);
 
             // lblUsername
             this.lblUsername.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.lblUsername.ForeColor = System.Drawing.Color.FromArgb(60, 60, 60);
+            this.lblUsername.ForeColor = System.Drawing.Color.White;
             this.lblUsername.Location = new System.Drawing.Point(30, 310);
             this.lblUsername.Size = new System.Drawing.Size(100, 20);
             this.lblUsername.Text = "Логин:";
 
             // txtUsername
-            this.txtUsername.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.txtUsername.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
+            this.txtUsername.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.txtUsername.Font = new System.Drawing.Font("Segoe UI", 11F);
+            this.txtUsername.ForeColor = System.Drawing.Color.White;
             this.txtUsername.Location = new System.Drawing.Point(30, 333);
             this.txtUsername.Size = new System.Drawing.Size(360, 20);
             this.txtUsername.Text = "admin";
 
             // panelLine2
-            this.panelLine2.BackColor = System.Drawing.Color.FromArgb(200, 200, 200);
+            this.panelLine2.BackColor = System.Drawing.Color.FromArgb(0, 229, 255);
             this.panelLine2.Location = new System.Drawing.Point(30, 355);
             this.panelLine2.Size = new System.Drawing.Size(360, 1);
 
             // lblPassword
             this.lblPassword.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.lblPassword.ForeColor = System.Drawing.Color.FromArgb(60, 60, 60);
+            this.lblPassword.ForeColor = System.Drawing.Color.White;
             this.lblPassword.Location = new System.Drawing.Point(30, 370);
             this.lblPassword.Size = new System.Drawing.Size(100, 20);
             this.lblPassword.Text = "Пароль:";
 
             // txtPassword
-            this.txtPassword.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.txtPassword.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
+            this.txtPassword.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.txtPassword.Font = new System.Drawing.Font("Segoe UI", 11F);
+            this.txtPassword.ForeColor = System.Drawing.Color.White;
             this.txtPassword.Location = new System.Drawing.Point(30, 393);
             this.txtPassword.Size = new System.Drawing.Size(360, 20);
             this.txtPassword.Text = "admin";
             this.txtPassword.UseSystemPasswordChar = true;
 
             // panelLine3
-            this.panelLine3.BackColor = System.Drawing.Color.FromArgb(200, 200, 200);
+            this.panelLine3.BackColor = System.Drawing.Color.FromArgb(0, 229, 255);
             this.panelLine3.Location = new System.Drawing.Point(30, 415);
             this.panelLine3.Size = new System.Drawing.Size(360, 1);
 
             // btnLogin
-            this.btnLogin.BackColor = System.Drawing.Color.FromArgb(63, 81, 181);
+            this.btnLogin.BackColor = System.Drawing.Color.FromArgb(0, 229, 255);
             this.btnLogin.FlatAppearance.BorderSize = 0;
             this.btnLogin.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLogin.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
-            this.btnLogin.ForeColor = System.Drawing.Color.White;
+            this.btnLogin.ForeColor = System.Drawing.Color.Black;
             this.btnLogin.Location = new System.Drawing.Point(30, 440);
             this.btnLogin.Size = new System.Drawing.Size(170, 45);
             this.btnLogin.Text = "Войти";
             this.btnLogin.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnLogin.Click += BtnLogin_Click;
 
             // btnCancel
-            this.btnCancel.BackColor = System.Drawing.Color.White;
-            this.btnCancel.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(63, 81, 181);
+            this.btnCancel.BackColor = System.Drawing.Color.Transparent;
+            this.btnCancel.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0, 229, 255);
             this.btnCancel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnCancel.Font = new System.Drawing.Font("Segoe UI", 11F);
-            this.btnCancel.ForeColor = System.Drawing.Color.FromArgb(63, 81, 181);
+            this.btnCancel.ForeColor = System.Drawing.Color.FromArgb(0, 229, 255);
             this.btnCancel.Location = new System.Drawing.Point(220, 440);
             this.btnCancel.Size = new System.Drawing.Size(170, 45);
             this.btnCancel.Text = "Отмена";
             this.btnCancel.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnCancel.Click += BtnCancel_Click;
 
             // lblStatus
             this.lblStatus.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.lblStatus.ForeColor = System.Drawing.Color.Gray;
+            this.lblStatus.ForeColor = System.Drawing.Color.FromArgb(180, 180, 200);
             this.lblStatus.Location = new System.Drawing.Point(30, 500);
             this.lblStatus.Size = new System.Drawing.Size(360, 25);
             this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;

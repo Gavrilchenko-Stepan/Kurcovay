@@ -90,17 +90,10 @@
             this.panelMessageInput.SuspendLayout();
             this.panelStatusBar.SuspendLayout();
             this.SuspendLayout();
-
-            this.btnNewChat.Click += this.BtnNewChat_Click;
-            this.btnSettings.Click += this.BtnSettings_Click;
-            this.btnLogout.Click += this.BtnLogout_Click;
-            this.btnSend.Click += this.BtnSend_Click;
-            this.txtMessage.KeyDown += this.TxtMessage_KeyDown;
-            this.lstChats.SelectedIndexChanged += this.LstChats_SelectedIndexChanged;
             // 
             // panelTop
             // 
-            this.panelTop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(63)))), ((int)(((byte)(81)))), ((int)(((byte)(181)))));
+            this.panelTop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(20)))), ((int)(((byte)(20)))), ((int)(((byte)(30)))));
             this.panelTop.Controls.Add(this.panelTopGradient);
             this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelTop.Location = new System.Drawing.Point(0, 0);
@@ -110,7 +103,7 @@
             // 
             // panelTopGradient
             // 
-            this.panelTopGradient.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(48)))), ((int)(((byte)(63)))), ((int)(((byte)(159)))));
+            this.panelTopGradient.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(20)))), ((int)(((byte)(20)))), ((int)(((byte)(30)))));
             this.panelTopGradient.Controls.Add(this.picUserAvatar);
             this.panelTopGradient.Controls.Add(this.lblUserName);
             this.panelTopGradient.Controls.Add(this.lblUserDepartment);
@@ -127,7 +120,7 @@
             // 
             // picUserAvatar
             // 
-            this.picUserAvatar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(193)))), ((int)(((byte)(7)))));
+            this.picUserAvatar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
             this.picUserAvatar.Location = new System.Drawing.Point(20, 15);
             this.picUserAvatar.Name = "picUserAvatar";
             this.picUserAvatar.Size = new System.Drawing.Size(40, 40);
@@ -148,7 +141,7 @@
             // lblUserDepartment
             // 
             this.lblUserDepartment.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.lblUserDepartment.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(220)))), ((int)(((byte)(250)))));
+            this.lblUserDepartment.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(200)))));
             this.lblUserDepartment.Location = new System.Drawing.Point(70, 35);
             this.lblUserDepartment.Name = "lblUserDepartment";
             this.lblUserDepartment.Size = new System.Drawing.Size(200, 15);
@@ -163,59 +156,47 @@
             this.lblUserStatus.Size = new System.Drawing.Size(100, 15);
             this.lblUserStatus.TabIndex = 3;
             this.lblUserStatus.Text = "● Не в сети";
-            // 
+
             // btnNewChat
-            // 
             this.btnNewChat.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.btnNewChat.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(255)))), ((int)(((byte)(30)))));
-            this.btnNewChat.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNewChat.FlatAppearance.BorderSize = 0;
+            this.btnNewChat.BackColor = System.Drawing.Color.Transparent;
+            this.btnNewChat.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0, 229, 255);
             this.btnNewChat.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnNewChat.Font = new System.Drawing.Font("Segoe UI", 10F);
-            this.btnNewChat.ForeColor = System.Drawing.Color.White;
+            this.btnNewChat.ForeColor = System.Drawing.Color.FromArgb(0, 229, 255);
             this.btnNewChat.Location = new System.Drawing.Point(950, 20);
-            this.btnNewChat.Name = "btnNewChat";
             this.btnNewChat.Size = new System.Drawing.Size(120, 30);
-            this.btnNewChat.TabIndex = 4;
             this.btnNewChat.Text = "➕ Новый чат";
             this.btnNewChat.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.btnNewChat.UseVisualStyleBackColor = false;
-            // 
+            this.btnNewChat.Cursor = System.Windows.Forms.Cursors.Hand;
+
             // btnSettings
-            // 
             this.btnSettings.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.btnSettings.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(255)))), ((int)(((byte)(20)))));
-            this.btnSettings.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnSettings.FlatAppearance.BorderSize = 0;
+            this.btnSettings.BackColor = System.Drawing.Color.Transparent;
+            this.btnSettings.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0, 229, 255);
             this.btnSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSettings.Font = new System.Drawing.Font("Segoe UI", 14F);
-            this.btnSettings.ForeColor = System.Drawing.Color.White;
+            this.btnSettings.ForeColor = System.Drawing.Color.FromArgb(0, 229, 255);
             this.btnSettings.Location = new System.Drawing.Point(1080, 15);
-            this.btnSettings.Name = "btnSettings";
             this.btnSettings.Size = new System.Drawing.Size(40, 40);
-            this.btnSettings.TabIndex = 5;
             this.btnSettings.Text = "⚙";
-            this.btnSettings.UseVisualStyleBackColor = false;
-            // 
+            this.btnSettings.Cursor = System.Windows.Forms.Cursors.Hand;
+
             // btnLogout
-            // 
             this.btnLogout.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.btnLogout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(255)))), ((int)(((byte)(20)))));
-            this.btnLogout.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnLogout.FlatAppearance.BorderSize = 0;
+            this.btnLogout.BackColor = System.Drawing.Color.Transparent;
+            this.btnLogout.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(255, 80, 80);
             this.btnLogout.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLogout.Font = new System.Drawing.Font("Segoe UI", 14F);
-            this.btnLogout.ForeColor = System.Drawing.Color.White;
+            this.btnLogout.ForeColor = System.Drawing.Color.FromArgb(255, 80, 80);
             this.btnLogout.Location = new System.Drawing.Point(1130, 15);
-            this.btnLogout.Name = "btnLogout";
             this.btnLogout.Size = new System.Drawing.Size(40, 40);
-            this.btnLogout.TabIndex = 6;
             this.btnLogout.Text = "🚪";
-            this.btnLogout.UseVisualStyleBackColor = false;
+            this.btnLogout.Cursor = System.Windows.Forms.Cursors.Hand;
             // 
             // panelLeft
             // 
-            this.panelLeft.BackColor = System.Drawing.Color.White;
+            this.panelLeft.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(58)))));
             this.panelLeft.Controls.Add(this.panelLeftHeader);
             this.panelLeft.Controls.Add(this.lstChats);
             this.panelLeft.Controls.Add(this.panelLeftFooter);
@@ -227,7 +208,7 @@
             // 
             // panelLeftHeader
             // 
-            this.panelLeftHeader.BackColor = System.Drawing.Color.White;
+            this.panelLeftHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(58)))));
             this.panelLeftHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.panelLeftHeader.Controls.Add(this.lblChats);
             this.panelLeftHeader.Controls.Add(this.txtSearchChats);
@@ -241,7 +222,7 @@
             // lblChats
             // 
             this.lblChats.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
-            this.lblChats.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(63)))), ((int)(((byte)(81)))), ((int)(((byte)(181)))));
+            this.lblChats.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
             this.lblChats.Location = new System.Drawing.Point(15, 10);
             this.lblChats.Name = "lblChats";
             this.lblChats.Size = new System.Drawing.Size(100, 25);
@@ -250,7 +231,7 @@
             // 
             // txtSearchChats
             // 
-            this.txtSearchChats.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.txtSearchChats.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(80)))));
             this.txtSearchChats.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.txtSearchChats.Font = new System.Drawing.Font("Segoe UI", 10F);
             this.txtSearchChats.ForeColor = System.Drawing.Color.Gray;
@@ -271,9 +252,11 @@
             // 
             // lstChats
             // 
+            this.lstChats.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(58)))));
             this.lstChats.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.lstChats.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lstChats.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.lstChats.ForeColor = System.Drawing.Color.White;
             this.lstChats.IntegralHeight = false;
             this.lstChats.ItemHeight = 70;
             this.lstChats.Location = new System.Drawing.Point(0, 0);
@@ -283,7 +266,7 @@
             // 
             // panelLeftFooter
             // 
-            this.panelLeftFooter.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.panelLeftFooter.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(46)))));
             this.panelLeftFooter.Controls.Add(this.lblTotalUsers);
             this.panelLeftFooter.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.panelLeftFooter.Location = new System.Drawing.Point(0, 575);
@@ -294,7 +277,7 @@
             // lblTotalUsers
             // 
             this.lblTotalUsers.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.lblTotalUsers.ForeColor = System.Drawing.Color.Gray;
+            this.lblTotalUsers.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(200)))));
             this.lblTotalUsers.Location = new System.Drawing.Point(15, 5);
             this.lblTotalUsers.Name = "lblTotalUsers";
             this.lblTotalUsers.Size = new System.Drawing.Size(320, 20);
@@ -303,7 +286,7 @@
             // 
             // panelRight
             // 
-            this.panelRight.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
+            this.panelRight.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(46)))));
             this.panelRight.Controls.Add(this.panelChatHeader);
             this.panelRight.Controls.Add(this.lstMessages);
             this.panelRight.Controls.Add(this.panelMessageInput);
@@ -316,7 +299,7 @@
             // 
             // panelChatHeader
             // 
-            this.panelChatHeader.BackColor = System.Drawing.Color.White;
+            this.panelChatHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(58)))));
             this.panelChatHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.panelChatHeader.Controls.Add(this.picChatAvatar);
             this.panelChatHeader.Controls.Add(this.lblChatName);
@@ -329,7 +312,7 @@
             // 
             // picChatAvatar
             // 
-            this.picChatAvatar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(76)))), ((int)(((byte)(175)))), ((int)(((byte)(80)))));
+            this.picChatAvatar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
             this.picChatAvatar.Location = new System.Drawing.Point(15, 10);
             this.picChatAvatar.Name = "picChatAvatar";
             this.picChatAvatar.Size = new System.Drawing.Size(50, 50);
@@ -340,7 +323,7 @@
             // lblChatName
             // 
             this.lblChatName.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
-            this.lblChatName.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(63)))), ((int)(((byte)(81)))), ((int)(((byte)(181)))));
+            this.lblChatName.ForeColor = System.Drawing.Color.White;
             this.lblChatName.Location = new System.Drawing.Point(75, 15);
             this.lblChatName.Name = "lblChatName";
             this.lblChatName.Size = new System.Drawing.Size(400, 25);
@@ -350,7 +333,7 @@
             // lblChatInfo
             // 
             this.lblChatInfo.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.lblChatInfo.ForeColor = System.Drawing.Color.Gray;
+            this.lblChatInfo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(200)))));
             this.lblChatInfo.Location = new System.Drawing.Point(75, 40);
             this.lblChatInfo.Name = "lblChatInfo";
             this.lblChatInfo.Size = new System.Drawing.Size(400, 20);
@@ -361,9 +344,10 @@
             this.lstMessages.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.lstMessages.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
+            this.lstMessages.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(46)))));
             this.lstMessages.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.lstMessages.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.lstMessages.ForeColor = System.Drawing.Color.White;
             this.lstMessages.IntegralHeight = false;
             this.lstMessages.ItemHeight = 60;
             this.lstMessages.Location = new System.Drawing.Point(10, 90);
@@ -375,7 +359,7 @@
             // 
             this.panelMessageInput.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.panelMessageInput.BackColor = System.Drawing.Color.White;
+            this.panelMessageInput.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(58)))));
             this.panelMessageInput.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.panelMessageInput.Controls.Add(this.txtMessage);
             this.panelMessageInput.Controls.Add(this.btnSend);
@@ -388,8 +372,10 @@
             // 
             this.txtMessage.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.txtMessage.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.txtMessage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(80)))));
+            this.txtMessage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.txtMessage.Font = new System.Drawing.Font("Segoe UI", 11F);
+            this.txtMessage.ForeColor = System.Drawing.Color.White;
             this.txtMessage.Location = new System.Drawing.Point(15, 10);
             this.txtMessage.Multiline = true;
             this.txtMessage.Name = "txtMessage";
@@ -399,14 +385,14 @@
             // btnSend
             // 
             this.btnSend.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.btnSend.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(63)))), ((int)(((byte)(81)))), ((int)(((byte)(181)))));
+            this.btnSend.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
             this.btnSend.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSend.Enabled = false;
             this.btnSend.FlatAppearance.BorderSize = 0;
             this.btnSend.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSend.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnSend.ForeColor = System.Drawing.Color.White;
-            this.btnSend.Location = new System.Drawing.Point(680, 4);
+            this.btnSend.ForeColor = System.Drawing.Color.Black;
+            this.btnSend.Location = new System.Drawing.Point(680, 5);
             this.btnSend.Name = "btnSend";
             this.btnSend.Size = new System.Drawing.Size(140, 50);
             this.btnSend.TabIndex = 1;
@@ -415,7 +401,7 @@
             // 
             // panelStatusBar
             // 
-            this.panelStatusBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(58)))), ((int)(((byte)(64)))));
+            this.panelStatusBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(20)))), ((int)(((byte)(20)))), ((int)(((byte)(30)))));
             this.panelStatusBar.Controls.Add(this.lblConnectionStatus);
             this.panelStatusBar.Controls.Add(this.lblServerInfo);
             this.panelStatusBar.Dock = System.Windows.Forms.DockStyle.Bottom;
@@ -438,7 +424,7 @@
             // 
             this.lblServerInfo.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.lblServerInfo.Font = new System.Drawing.Font("Segoe UI", 8F);
-            this.lblServerInfo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.lblServerInfo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(200)))));
             this.lblServerInfo.Location = new System.Drawing.Point(980, 5);
             this.lblServerInfo.Name = "lblServerInfo";
             this.lblServerInfo.Size = new System.Drawing.Size(200, 15);
@@ -448,7 +434,7 @@
             // 
             // MainForm
             // 
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(245)))));
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(46)))));
             this.ClientSize = new System.Drawing.Size(1200, 700);
             this.Controls.Add(this.panelRight);
             this.Controls.Add(this.panelLeft);
