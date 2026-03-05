@@ -38,6 +38,8 @@ namespace Messenger.Client
             this.txtSearchChats.TextChanged += TxtSearchChats_TextChanged;
             this.txtSearchChats.Enter += TxtSearchChats_Enter;
             this.txtSearchChats.Leave += TxtSearchChats_Leave;
+            lstMessages.DrawMode = DrawMode.Normal; // временно, чтобы проверить
+            lstMessages.DrawItem -= LstMessages_DrawItem; // отписываемся, если подписка была
         }
 
         private void ApplyFuturisticStyle()
@@ -207,6 +209,7 @@ namespace Messenger.Client
                         var jsonElemNewMsg = (JsonElement)packet.Data;
                         string jsonNewMsg = jsonElemNewMsg.GetRawText();
                         var newMsg = JsonSerializer.Deserialize<Shared.Message>(jsonNewMsg);
+                        Console.WriteLine($"Получено новое сообщение: {newMsg.Text} в чат {newMsg.ChatId}");
                         HandleNewMessage(newMsg);
                         break;
                     case Shared.CommandType.UserStatusChanged:
@@ -321,6 +324,9 @@ namespace Messenger.Client
                     lstMessages.TopIndex = lstMessages.Items.Count - 1;
                 }
             }
+            Console.WriteLine($"Сообщение добавлено в список: {msg.Text}");
+            lstMessages.Items.Add(msg);
+            lstMessages.Refresh();
         }
 
         private void UpdateUserStatus(User user)
