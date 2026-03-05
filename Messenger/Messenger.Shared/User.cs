@@ -18,5 +18,7 @@ namespace Messenger.Shared
         public string Position { get; set; }
         public bool IsOnline { get; set; }
         public DateTime? LastSeen { get; set; }
+
+        public override string ToString() => FullName;
     }
 }

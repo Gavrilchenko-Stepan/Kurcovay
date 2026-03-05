@@ -116,7 +116,6 @@ namespace Messenger.Server
             catch (Exception ex)
             {
                 server.Log($"Exception in HandleLogin: {ex.Message}");
-                // В случае исключения можно отправить клиенту ошибку, но лучше разобраться в причине
             }
         }
 
@@ -130,7 +129,8 @@ namespace Messenger.Server
         private void HandleGetMessages(NetworkPacket packet)
         {
             if (User == null) return;
-            int chatId = Convert.ToInt32(packet.Data);
+            var jsonElement = (JsonElement)packet.Data;
+            int chatId = jsonElement.GetInt32(); // получаем число напрямую
             var msgs = db.GetChatMessages(chatId, User.Id);
             SendPacket(new NetworkPacket { Command = CommandType.MessagesList, Data = msgs });
         }
@@ -138,7 +138,10 @@ namespace Messenger.Server
         private void HandleSendMessage(NetworkPacket packet)
         {
             if (User == null) return;
-            var msg = JsonSerializer.Deserialize<Message>(packet.Data.ToString());
+            // Здесь packet.Data – это JsonElement, содержащий объект Message
+            var jsonElement = (JsonElement)packet.Data;
+            string json = jsonElement.GetRawText();
+            var msg = JsonSerializer.Deserialize<Message>(json);
             msg.SenderId = User.Id;
             msg.SenderName = User.FullName;
             msg.SentAt = DateTime.Now;
@@ -159,7 +162,8 @@ namespace Messenger.Server
         private void HandleGetAvailableUsers(NetworkPacket packet)
         {
             if (User == null) return;
-            int uid = Convert.ToInt32(packet.Data);
+            var jsonElement = (JsonElement)packet.Data;
+            int uid = jsonElement.GetInt32(); // получаем число
             var users = db.GetAvailableUsersForChat(uid);
             SendPacket(new NetworkPacket { Command = CommandType.AvailableUsersList, Data = users });
         }
@@ -167,7 +171,9 @@ namespace Messenger.Server
         private void HandleCreatePrivateChat(NetworkPacket packet)
         {
             if (User == null) return;
-            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(packet.Data.ToString());
+            var jsonElement = (JsonElement)packet.Data;
+            string json = jsonElement.GetRawText();
+            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(json);
             int otherId = data["otherUserId"];
             var chat = db.CreatePrivateChat(User.Id, otherId);
             SendPacket(new NetworkPacket { Command = CommandType.ChatCreated, Data = chat });
@@ -182,8 +188,11 @@ namespace Messenger.Server
         private void HandleCreateGroupChat(NetworkPacket packet)
         {
             if (User == null) return;
-            var data = JsonSerializer.Deserialize<Dictionary<string, object>>(packet.Data.ToString());
+            var jsonElement = (JsonElement)packet.Data;
+            string json = jsonElement.GetRawText();
+            var data = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
             string name = data["name"].ToString();
+            // participants может быть JsonElement или списком, поэтому десериализуем отдельно
             var participants = JsonSerializer.Deserialize<List<int>>(data["participants"].ToString());
             var chat = db.CreateGroupChat(name, participants, User.Id);
             SendPacket(new NetworkPacket { Command = CommandType.ChatCreated, Data = chat });

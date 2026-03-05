@@ -24,6 +24,9 @@ namespace Messenger.Client
         public NewChatForm(int userId, string department, NetworkClient client)
         {
             InitializeComponent();
+            lstDepartments.DrawMode = DrawMode.Normal;
+            lstUsers.DrawMode = DrawMode.Normal;
+            chkUsers.DrawMode = DrawMode.Normal;
             ApplyFuturisticStyle();
             currentUserId = userId;
             currentDepartment = department;
@@ -31,6 +34,11 @@ namespace Messenger.Client
             networkClient.OnPacketReceived += OnPacketReceived;
             this.Load += NewChatForm_Load;
             picSearch.Paint += PicSearch_Paint;
+            lstDepartments.SelectedIndexChanged += LstDepartments_SelectedIndexChanged;
+            lstUsers.SelectedIndexChanged += LstUsers_SelectedIndexChanged;
+            chkUsers.SelectedIndexChanged += ChkUsers_SelectedIndexChanged;
+            txtChatName.TextChanged += TxtChatName_TextChanged;
+            tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
         }
 
         private void ApplyFuturisticStyle()
@@ -109,10 +117,15 @@ namespace Messenger.Client
             lstDepartments.Items.Clear();
             foreach (var dept in departments.Where(d => d.Name != currentDepartment))
                 lstDepartments.Items.Add(dept);
+            if (lstDepartments.Items.Count > 0)
+                lstDepartments.SelectedIndex = 0;
+            UpdateCreateButton();
         }
 
         private void UpdateUsersList()
         {
+            Console.WriteLine($"UpdateUsersList: availableUsers.Count = {availableUsers.Count}");
+            if (availableUsers.Count == 0) return;
             lstUsers.Items.Clear();
             chkUsers.Items.Clear();
             foreach (var user in availableUsers.Where(u => u.Id != currentUserId))
@@ -120,6 +133,10 @@ namespace Messenger.Client
                 lstUsers.Items.Add(user);
                 chkUsers.Items.Add(user, false);
             }
+            Console.WriteLine($"lstUsers.Items.Count = {lstUsers.Items.Count}");
+            if (lstDepartments.Items.Count > 0)
+                lstDepartments.SelectedIndex = 0;
+            UpdateCreateButton();
         }
 
         private void TabControl_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
@@ -178,7 +195,7 @@ namespace Messenger.Client
         private void BtnCancel_Click(object sender, EventArgs e) => Close();
 
         // Отрисовка списков (без эмодзи, только круги)
-        private void LstDepartments_DrawItem(object sender, DrawItemEventArgs e)
+        /*private void LstDepartments_DrawItem(object sender, DrawItemEventArgs e)
         {
             if (e.Index < 0) return;
             if (!(lstDepartments.Items[e.Index] is Department dept))
@@ -280,7 +297,7 @@ namespace Messenger.Client
                 e.Graphics.DrawString(user.FullName, font, Brushes.White, e.Bounds.X + 80, e.Bounds.Y + 12);
 
             e.DrawFocusRectangle();
-        }
+        }*/
 
         private void PicSearch_Paint(object sender, PaintEventArgs e)
         {

@@ -158,7 +158,7 @@ namespace Messenger.Client
 
             // lstDepartments
             this.lstDepartments.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.lstDepartments.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.lstDepartments.DrawMode = System.Windows.Forms.DrawMode.Normal;
             this.lstDepartments.Font = new System.Drawing.Font("Segoe UI", 10F);
             this.lstDepartments.IntegralHeight = false;
             this.lstDepartments.ItemHeight = 60;
@@ -180,7 +180,7 @@ namespace Messenger.Client
 
             // lstUsers
             this.lstUsers.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.lstUsers.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.lstUsers.DrawMode = System.Windows.Forms.DrawMode.Normal;
             this.lstUsers.Font = new System.Drawing.Font("Segoe UI", 10F);
             this.lstUsers.IntegralHeight = false;
             this.lstUsers.ItemHeight = 70;
