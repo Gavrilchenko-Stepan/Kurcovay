@@ -17,10 +17,10 @@ namespace Messenger.Client
         private System.Windows.Forms.TabPage tabPrivate;
         private System.Windows.Forms.TabPage tabGroup;
         private System.Windows.Forms.ListBox lstDepartments;
-        private System.Windows.Forms.ListBox lstUsers;
+        private System.Windows.Forms.ListView lvPrivateUsers;
+        private System.Windows.Forms.ListView lvGroupUsers;
         private System.Windows.Forms.Label lblChatName;
         private System.Windows.Forms.TextBox txtChatName;
-        private System.Windows.Forms.CheckedListBox chkUsers;
         private System.Windows.Forms.Panel panelFooter;
         private System.Windows.Forms.Button btnCreate;
         private System.Windows.Forms.Button btnCancel;
@@ -46,11 +46,11 @@ namespace Messenger.Client
             this.picSearch = new System.Windows.Forms.PictureBox();
             this.lstDepartments = new System.Windows.Forms.ListBox();
             this.tabPrivate = new System.Windows.Forms.TabPage();
-            this.lstUsers = new System.Windows.Forms.ListBox();
+            this.lvPrivateUsers = new System.Windows.Forms.ListView();
             this.tabGroup = new System.Windows.Forms.TabPage();
             this.lblChatName = new System.Windows.Forms.Label();
             this.txtChatName = new System.Windows.Forms.TextBox();
-            this.chkUsers = new System.Windows.Forms.CheckedListBox();
+            this.lvGroupUsers = new System.Windows.Forms.ListView();
             this.panelFooter = new System.Windows.Forms.Panel();
             this.btnCreate = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
@@ -161,7 +161,7 @@ namespace Messenger.Client
             this.lstDepartments.DrawMode = System.Windows.Forms.DrawMode.Normal;
             this.lstDepartments.Font = new System.Drawing.Font("Segoe UI", 10F);
             this.lstDepartments.IntegralHeight = false;
-            this.lstDepartments.ItemHeight = 60;
+            this.lstDepartments.ItemHeight = 20;
             this.lstDepartments.Location = new System.Drawing.Point(15, 45);
             this.lstDepartments.Name = "lstDepartments";
             this.lstDepartments.Size = new System.Drawing.Size(460, 320);
@@ -170,7 +170,7 @@ namespace Messenger.Client
 
             // tabPrivate
             this.tabPrivate.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);
-            this.tabPrivate.Controls.Add(this.lstUsers);
+            this.tabPrivate.Controls.Add(this.lvPrivateUsers);
             this.tabPrivate.Location = new System.Drawing.Point(4, 26);
             this.tabPrivate.Name = "tabPrivate";
             this.tabPrivate.Padding = new System.Windows.Forms.Padding(15);
@@ -178,23 +178,26 @@ namespace Messenger.Client
             this.tabPrivate.Text = "Личный";
             this.tabPrivate.ForeColor = System.Drawing.Color.White;
 
-            // lstUsers
-            this.lstUsers.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.lstUsers.DrawMode = System.Windows.Forms.DrawMode.Normal;
-            this.lstUsers.Font = new System.Drawing.Font("Segoe UI", 10F);
-            this.lstUsers.IntegralHeight = false;
-            this.lstUsers.ItemHeight = 70;
-            this.lstUsers.Location = new System.Drawing.Point(15, 15);
-            this.lstUsers.Name = "lstUsers";
-            this.lstUsers.Size = new System.Drawing.Size(460, 355);
-            this.lstUsers.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
-            this.lstUsers.ForeColor = System.Drawing.Color.White;
+            // lvPrivateUsers
+            this.lvPrivateUsers.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
+            this.lvPrivateUsers.ForeColor = System.Drawing.Color.White;
+            this.lvPrivateUsers.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.lvPrivateUsers.FullRowSelect = true;
+            this.lvPrivateUsers.HideSelection = false;
+            this.lvPrivateUsers.MultiSelect = false;
+            this.lvPrivateUsers.View = System.Windows.Forms.View.Details;
+            this.lvPrivateUsers.Location = new System.Drawing.Point(15, 15);
+            this.lvPrivateUsers.Name = "lvPrivateUsers";
+            this.lvPrivateUsers.Size = new System.Drawing.Size(460, 355);
+            this.lvPrivateUsers.TabIndex = 0;
+            this.lvPrivateUsers.UseCompatibleStateImageBehavior = false;
+            this.lvPrivateUsers.Columns.Add("Пользователи", 430);
 
             // tabGroup
             this.tabGroup.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);
             this.tabGroup.Controls.Add(this.lblChatName);
             this.tabGroup.Controls.Add(this.txtChatName);
-            this.tabGroup.Controls.Add(this.chkUsers);
+            this.tabGroup.Controls.Add(this.lvGroupUsers);
             this.tabGroup.Location = new System.Drawing.Point(4, 26);
             this.tabGroup.Name = "tabGroup";
             this.tabGroup.Padding = new System.Windows.Forms.Padding(15);
@@ -219,16 +222,21 @@ namespace Messenger.Client
             this.txtChatName.Name = "txtChatName";
             this.txtChatName.Size = new System.Drawing.Size(460, 25);
 
-            // chkUsers
-            this.chkUsers.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.chkUsers.CheckOnClick = true;
-            this.chkUsers.Font = new System.Drawing.Font("Segoe UI", 10F);
-            this.chkUsers.IntegralHeight = false;
-            this.chkUsers.Location = new System.Drawing.Point(15, 75);
-            this.chkUsers.Name = "chkUsers";
-            this.chkUsers.Size = new System.Drawing.Size(460, 295);
-            this.chkUsers.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
-            this.chkUsers.ForeColor = System.Drawing.Color.White;
+            // lvGroupUsers
+            this.lvGroupUsers.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
+            this.lvGroupUsers.ForeColor = System.Drawing.Color.White;
+            this.lvGroupUsers.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.lvGroupUsers.CheckBoxes = true;
+            this.lvGroupUsers.FullRowSelect = true;
+            this.lvGroupUsers.HideSelection = false;
+            this.lvGroupUsers.MultiSelect = true;
+            this.lvGroupUsers.View = System.Windows.Forms.View.Details;
+            this.lvGroupUsers.Location = new System.Drawing.Point(15, 75);
+            this.lvGroupUsers.Name = "lvGroupUsers";
+            this.lvGroupUsers.Size = new System.Drawing.Size(460, 295);
+            this.lvGroupUsers.TabIndex = 2;
+            this.lvGroupUsers.UseCompatibleStateImageBehavior = false;
+            this.lvGroupUsers.Columns.Add("Пользователи", 430);
 
             // panelFooter
             this.panelFooter.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);

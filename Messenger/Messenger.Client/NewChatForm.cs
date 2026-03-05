@@ -20,13 +20,11 @@ namespace Messenger.Client
         private NetworkClient networkClient;
         private List<Department> departments = new List<Department>();
         private List<User> availableUsers = new List<User>();
+        private ImageList avatarImageList;
 
         public NewChatForm(int userId, string department, NetworkClient client)
         {
             InitializeComponent();
-            lstDepartments.DrawMode = DrawMode.Normal;
-            lstUsers.DrawMode = DrawMode.Normal;
-            chkUsers.DrawMode = DrawMode.Normal;
             ApplyFuturisticStyle();
             currentUserId = userId;
             currentDepartment = department;
@@ -34,11 +32,18 @@ namespace Messenger.Client
             networkClient.OnPacketReceived += OnPacketReceived;
             this.Load += NewChatForm_Load;
             picSearch.Paint += PicSearch_Paint;
+
+            btnCreate.Click += BtnCreate_Click;
+            btnCancel.Click += BtnCancel_Click;
             lstDepartments.SelectedIndexChanged += LstDepartments_SelectedIndexChanged;
-            lstUsers.SelectedIndexChanged += LstUsers_SelectedIndexChanged;
-            chkUsers.SelectedIndexChanged += ChkUsers_SelectedIndexChanged;
+            lvPrivateUsers.SelectedIndexChanged += LvPrivateUsers_SelectedIndexChanged;
+            lvGroupUsers.ItemChecked += LvGroupUsers_ItemChecked;
             txtChatName.TextChanged += TxtChatName_TextChanged;
             tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
+
+            avatarImageList = new ImageList();
+            avatarImageList.ImageSize = new Size(40, 40);
+            avatarImageList.ColorDepth = ColorDepth.Depth32Bit;
         }
 
         private void ApplyFuturisticStyle()
@@ -55,12 +60,8 @@ namespace Messenger.Client
             txtSearch.ForeColor = Color.White;
             lstDepartments.BackColor = Color.FromArgb(60, 60, 80);
             lstDepartments.ForeColor = Color.White;
-            lstUsers.BackColor = Color.FromArgb(60, 60, 80);
-            lstUsers.ForeColor = Color.White;
             txtChatName.BackColor = Color.FromArgb(60, 60, 80);
             txtChatName.ForeColor = Color.White;
-            chkUsers.BackColor = Color.FromArgb(60, 60, 80);
-            chkUsers.ForeColor = Color.White;
             btnCreate.BackColor = Color.FromArgb(0, 229, 255);
             btnCreate.ForeColor = Color.Black;
             btnCancel.BackColor = Color.Transparent;
@@ -82,15 +83,14 @@ namespace Messenger.Client
                 return;
             }
 
-            Console.WriteLine($"NewChatForm получил: {packet.Command}"); // отладка
+            Console.WriteLine($"NewChatForm получил: {packet.Command}");
 
             switch (packet.Command)
             {
                 case Shared.CommandType.DepartmentsList:
-                    var jsonElement = (JsonElement)packet.Data;
-                    string json = jsonElement.GetRawText();
+                    var jsonDept = (JsonElement)packet.Data;
+                    string json = jsonDept.GetRawText();
                     departments = JsonSerializer.Deserialize<List<Department>>(json);
-                    Console.WriteLine($"DepartmentsList: получено {departments.Count} отделов");
                     UpdateDepartmentsList();
                     break;
                 case Shared.CommandType.AvailableUsersList:
@@ -100,9 +100,6 @@ namespace Messenger.Client
                     UpdateUsersList();
                     break;
                 case Shared.CommandType.ChatCreated:
-                    var jsonChat = (JsonElement)packet.Data;
-                    string chatJson = jsonChat.GetRawText();
-                    var newChat = JsonSerializer.Deserialize<Chat>(chatJson);
                     DialogResult = DialogResult.OK;
                     Close();
                     break;
@@ -111,9 +108,6 @@ namespace Messenger.Client
 
         private void UpdateDepartmentsList()
         {
-            Console.WriteLine($"UpdateDepartmentsList: departments.Count = {departments.Count}");
-            foreach (var d in departments)
-                Console.WriteLine($"  отдел: {d.Name}, currentDepartment = {currentDepartment}");
             lstDepartments.Items.Clear();
             foreach (var dept in departments.Where(d => d.Name != currentDepartment))
                 lstDepartments.Items.Add(dept);
@@ -124,42 +118,43 @@ namespace Messenger.Client
 
         private void UpdateUsersList()
         {
-            Console.WriteLine($"UpdateUsersList: availableUsers.Count = {availableUsers.Count}");
-            if (availableUsers.Count == 0) return;
-            lstUsers.Items.Clear();
-            chkUsers.Items.Clear();
+            lvPrivateUsers.Items.Clear();
+            lvGroupUsers.Items.Clear();
+
             foreach (var user in availableUsers.Where(u => u.Id != currentUserId))
             {
-                lstUsers.Items.Add(user);
-                chkUsers.Items.Add(user, false);
+                var itemPrivate = new ListViewItem(user.FullName);
+                itemPrivate.Tag = user;
+                lvPrivateUsers.Items.Add(itemPrivate);
+
+                var itemGroup = new ListViewItem(user.FullName);
+                itemGroup.Tag = user;
+                lvGroupUsers.Items.Add(itemGroup);
             }
-            Console.WriteLine($"lstUsers.Items.Count = {lstUsers.Items.Count}");
-            if (lstDepartments.Items.Count > 0)
-                lstDepartments.SelectedIndex = 0;
+
             UpdateCreateButton();
         }
-
-        private void TabControl_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
-        private void LstDepartments_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
-        private void LstUsers_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
-        private void TxtChatName_TextChanged(object sender, EventArgs e) => UpdateCreateButton();
-        private void ChkUsers_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
 
         private void UpdateCreateButton()
         {
             if (tabControl.SelectedTab == tabDepartment)
                 btnCreate.Enabled = lstDepartments.SelectedItem != null;
             else if (tabControl.SelectedTab == tabPrivate)
-                btnCreate.Enabled = lstUsers.SelectedItem != null;
+                btnCreate.Enabled = lvPrivateUsers.SelectedItems.Count > 0;
             else
-                btnCreate.Enabled = !string.IsNullOrWhiteSpace(txtChatName.Text) && chkUsers.CheckedItems.Count > 0;
+                btnCreate.Enabled = !string.IsNullOrWhiteSpace(txtChatName.Text) && lvGroupUsers.CheckedItems.Count > 0;
         }
+
+        private void TabControl_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
+        private void LstDepartments_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
+        private void LvPrivateUsers_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
+        private void LvGroupUsers_ItemChecked(object sender, ItemCheckedEventArgs e) => UpdateCreateButton();
+        private void TxtChatName_TextChanged(object sender, EventArgs e) => UpdateCreateButton();
 
         private void BtnCreate_Click(object sender, EventArgs e)
         {
             if (tabControl.SelectedTab == tabDepartment && lstDepartments.SelectedItem != null)
             {
-                // Для простоты создаём групповой чат с участниками из выбранного отдела
                 var dept = (Department)lstDepartments.SelectedItem;
                 var participants = availableUsers.Where(u => u.DepartmentId == dept.Id).Select(u => u.Id).ToList();
                 if (!participants.Contains(currentUserId))
@@ -170,9 +165,9 @@ namespace Messenger.Client
                     Data = new { name = dept.Name, participants }
                 });
             }
-            else if (tabControl.SelectedTab == tabPrivate && lstUsers.SelectedItem != null)
+            else if (tabControl.SelectedTab == tabPrivate && lvPrivateUsers.SelectedItems.Count > 0)
             {
-                var user = (User)lstUsers.SelectedItem;
+                var user = (User)lvPrivateUsers.SelectedItems[0].Tag;
                 networkClient.SendPacket(new NetworkPacket
                 {
                     Command = Shared.CommandType.CreatePrivateChat,
@@ -182,8 +177,12 @@ namespace Messenger.Client
             else if (tabControl.SelectedTab == tabGroup)
             {
                 var participants = new List<int>();
-                foreach (var item in chkUsers.CheckedItems)
-                    if (item is User u) participants.Add(u.Id);
+                foreach (ListViewItem item in lvGroupUsers.CheckedItems)
+                {
+                    if (item.Tag is User u)
+                        participants.Add(u.Id);
+                }
+                participants.Add(currentUserId);
                 networkClient.SendPacket(new NetworkPacket
                 {
                     Command = Shared.CommandType.CreateGroupChat,
@@ -193,111 +192,6 @@ namespace Messenger.Client
         }
 
         private void BtnCancel_Click(object sender, EventArgs e) => Close();
-
-        // Отрисовка списков (без эмодзи, только круги)
-        /*private void LstDepartments_DrawItem(object sender, DrawItemEventArgs e)
-        {
-            if (e.Index < 0) return;
-            if (!(lstDepartments.Items[e.Index] is Department dept))
-            {
-                e.DrawBackground();
-                e.DrawFocusRectangle();
-                return;
-            }
-
-            e.DrawBackground();
-            bool sel = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            Color back = sel ? Color.FromArgb(0, 229, 255, 50) : Color.FromArgb(60, 60, 80);
-            using (var brush = new SolidBrush(back))
-                e.Graphics.FillRectangle(brush, e.Bounds);
-
-            using (var brush = new SolidBrush(Color.FromArgb(63, 81, 181)))
-            {
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                e.Graphics.FillEllipse(brush, e.Bounds.X + 10, e.Bounds.Y + 10, 40, 40);
-            }
-
-            using (var font = new Font("Segoe UI", 11, FontStyle.Bold))
-                e.Graphics.DrawString(dept.Name, font, Brushes.White, e.Bounds.X + 60, e.Bounds.Y + 15);
-            using (var font = new Font("Segoe UI", 9))
-                e.Graphics.DrawString(dept.Description ?? "Отдел", font, Brushes.Gray, e.Bounds.X + 60, e.Bounds.Y + 38);
-            e.DrawFocusRectangle();
-        }
-
-        private void LstUsers_DrawItem(object sender, DrawItemEventArgs e)
-        {
-            if (e.Index < 0) return;
-            if (!(lstUsers.Items[e.Index] is User user))
-            {
-                e.DrawBackground();
-                e.DrawFocusRectangle();
-                return;
-            }
-
-            e.DrawBackground();
-            bool sel = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            Color back = sel ? Color.FromArgb(0, 229, 255, 50) : Color.FromArgb(60, 60, 80);
-            using (var brush = new SolidBrush(back))
-                e.Graphics.FillRectangle(brush, e.Bounds);
-
-            using (var brush = new SolidBrush(Color.FromArgb(63, 81, 181)))
-            {
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                e.Graphics.FillEllipse(brush, e.Bounds.X + 10, e.Bounds.Y + 10, 40, 40);
-            }
-
-            using (var font = new Font("Segoe UI", 11, FontStyle.Bold))
-                e.Graphics.DrawString(user.FullName, font, Brushes.White, e.Bounds.X + 60, e.Bounds.Y + 10);
-
-            string status = user.IsOnline ? "● Онлайн" : "● Офлайн";
-            Color statusColor = user.IsOnline ? Color.FromArgb(76, 175, 80) : Color.Gray;
-            using (var font = new Font("Segoe UI", 8))
-            using (var brush = new SolidBrush(statusColor))
-                e.Graphics.DrawString(status, font, brush, e.Bounds.X + 60, e.Bounds.Y + 35);
-
-            e.DrawFocusRectangle();
-        }
-
-        private void ChkUsers_DrawItem(object sender, DrawItemEventArgs e)
-        {
-            if (e.Index < 0) return;
-            if (!(chkUsers.Items[e.Index] is User user))
-            {
-                e.DrawBackground();
-                e.DrawFocusRectangle();
-                return;
-            }
-
-            e.DrawBackground();
-            bool sel = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            bool chk = chkUsers.GetItemChecked(e.Index);
-            Color back = sel ? Color.FromArgb(0, 229, 255, 50) : Color.FromArgb(60, 60, 80);
-            using (var brush = new SolidBrush(back))
-                e.Graphics.FillRectangle(brush, e.Bounds);
-
-            Rectangle checkRect = new Rectangle(e.Bounds.X + 10, e.Bounds.Y + 15, 20, 20);
-            using (var pen = new Pen(Color.FromArgb(0, 229, 255), 2))
-            {
-                e.Graphics.DrawRectangle(pen, checkRect);
-                if (chk)
-                {
-                    using (var font = new Font("Segoe UI", 14))
-                    using (var brush = new SolidBrush(Color.FromArgb(0, 229, 255)))
-                        e.Graphics.DrawString("✓", font, brush, checkRect.X + 2, checkRect.Y - 2);
-                }
-            }
-
-            using (var brush = new SolidBrush(Color.FromArgb(63, 81, 181)))
-            {
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                e.Graphics.FillEllipse(brush, e.Bounds.X + 40, e.Bounds.Y + 8, 30, 30);
-            }
-
-            using (var font = new Font("Segoe UI", 10, FontStyle.Bold))
-                e.Graphics.DrawString(user.FullName, font, Brushes.White, e.Bounds.X + 80, e.Bounds.Y + 12);
-
-            e.DrawFocusRectangle();
-        }*/
 
         private void PicSearch_Paint(object sender, PaintEventArgs e)
         {

@@ -17,5 +17,7 @@ namespace Messenger.Shared
         public DateTime LastMessageTime { get; set; }
         public int UnreadCount { get; set; }
         public List<User> Participants { get; set; } = new List<User>();
+
+        public override string ToString() => Name;
     }
 }

@@ -163,7 +163,7 @@ namespace Messenger.Server
         {
             if (User == null) return;
             var jsonElement = (JsonElement)packet.Data;
-            int uid = jsonElement.GetInt32(); // получаем число
+            int uid = jsonElement.GetInt32(); // получаем число напрямую
             var users = db.GetAvailableUsersForChat(uid);
             SendPacket(new NetworkPacket { Command = CommandType.AvailableUsersList, Data = users });
         }

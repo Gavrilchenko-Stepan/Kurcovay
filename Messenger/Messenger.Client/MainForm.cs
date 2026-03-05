@@ -25,6 +25,7 @@ namespace Messenger.Client
         public MainForm()
         {
             InitializeComponent();
+            lstChats.DrawMode = DrawMode.Normal;
             ApplyFuturisticStyle();
             this.Load += MainForm_Load;
             this.FormClosing += MainForm_FormClosing;
@@ -186,6 +187,8 @@ namespace Messenger.Client
                         var jsonElemChats = (JsonElement)packet.Data;
                         string jsonChats = jsonElemChats.GetRawText();
                         chats = JsonSerializer.Deserialize<List<Chat>>(jsonChats);
+                        Console.WriteLine($"Получен список чатов: {chats.Count} чатов");
+                        foreach (var c in chats) Console.WriteLine($"  - {c.Name} (Id={c.Id})");
                         UpdateChatsList();
                         UpdateTotalUsers();
                         break;
@@ -246,7 +249,11 @@ namespace Messenger.Client
             lstChats.Items.Clear();
             var sorted = chats.OrderByDescending(c => c.LastMessageTime).ToList();
             foreach (var chat in sorted)
+            {
                 lstChats.Items.Add(chat);
+                Console.WriteLine($"Добавлен в lstChats: {chat.Name}");
+            }
+            lstChats.Refresh();
         }
 
         private void UpdateTotalUsers()

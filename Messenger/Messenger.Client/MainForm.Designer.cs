@@ -1,4 +1,6 @@
-﻿namespace Messenger.Client
+﻿using System.Windows.Forms;
+
+namespace Messenger.Client
 {
     partial class MainForm
     {
@@ -156,43 +158,55 @@
             this.lblUserStatus.Size = new System.Drawing.Size(100, 15);
             this.lblUserStatus.TabIndex = 3;
             this.lblUserStatus.Text = "● Не в сети";
-
+            // 
             // btnNewChat
+            // 
             this.btnNewChat.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.btnNewChat.BackColor = System.Drawing.Color.Transparent;
-            this.btnNewChat.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0, 229, 255);
+            this.btnNewChat.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnNewChat.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
             this.btnNewChat.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnNewChat.Font = new System.Drawing.Font("Segoe UI", 10F);
-            this.btnNewChat.ForeColor = System.Drawing.Color.FromArgb(0, 229, 255);
+            this.btnNewChat.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
             this.btnNewChat.Location = new System.Drawing.Point(950, 20);
+            this.btnNewChat.Name = "btnNewChat";
             this.btnNewChat.Size = new System.Drawing.Size(120, 30);
+            this.btnNewChat.TabIndex = 4;
             this.btnNewChat.Text = "➕ Новый чат";
             this.btnNewChat.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.btnNewChat.Cursor = System.Windows.Forms.Cursors.Hand;
-
+            this.btnNewChat.UseVisualStyleBackColor = false;
+            // 
             // btnSettings
+            // 
             this.btnSettings.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.btnSettings.BackColor = System.Drawing.Color.Transparent;
-            this.btnSettings.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0, 229, 255);
+            this.btnSettings.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSettings.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
             this.btnSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSettings.Font = new System.Drawing.Font("Segoe UI", 14F);
-            this.btnSettings.ForeColor = System.Drawing.Color.FromArgb(0, 229, 255);
+            this.btnSettings.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
             this.btnSettings.Location = new System.Drawing.Point(1080, 15);
+            this.btnSettings.Name = "btnSettings";
             this.btnSettings.Size = new System.Drawing.Size(40, 40);
+            this.btnSettings.TabIndex = 5;
             this.btnSettings.Text = "⚙";
-            this.btnSettings.Cursor = System.Windows.Forms.Cursors.Hand;
-
+            this.btnSettings.UseVisualStyleBackColor = false;
+            // 
             // btnLogout
+            // 
             this.btnLogout.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.btnLogout.BackColor = System.Drawing.Color.Transparent;
-            this.btnLogout.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(255, 80, 80);
+            this.btnLogout.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnLogout.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.btnLogout.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLogout.Font = new System.Drawing.Font("Segoe UI", 14F);
-            this.btnLogout.ForeColor = System.Drawing.Color.FromArgb(255, 80, 80);
+            this.btnLogout.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.btnLogout.Location = new System.Drawing.Point(1130, 15);
+            this.btnLogout.Name = "btnLogout";
             this.btnLogout.Size = new System.Drawing.Size(40, 40);
+            this.btnLogout.TabIndex = 6;
             this.btnLogout.Text = "🚪";
-            this.btnLogout.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnLogout.UseVisualStyleBackColor = false;
             // 
             // panelLeft
             // 
@@ -251,18 +265,18 @@
             this.picSearch.TabStop = false;
             // 
             // lstChats
-            // 
-            this.lstChats.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(58)))));
+            //
+            this.lstChats.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);
             this.lstChats.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.lstChats.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lstChats.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.lstChats.DrawMode = System.Windows.Forms.DrawMode.Normal;
             this.lstChats.ForeColor = System.Drawing.Color.White;
             this.lstChats.IntegralHeight = false;
             this.lstChats.ItemHeight = 70;
-            this.lstChats.Location = new System.Drawing.Point(0, 0);
+            this.lstChats.Location = new System.Drawing.Point(0, 80);
             this.lstChats.Name = "lstChats";
-            this.lstChats.Size = new System.Drawing.Size(350, 575);
+            this.lstChats.Size = new System.Drawing.Size(350, 495);
             this.lstChats.TabIndex = 1;
+            this.lstChats.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             // 
             // panelLeftFooter
             // 
