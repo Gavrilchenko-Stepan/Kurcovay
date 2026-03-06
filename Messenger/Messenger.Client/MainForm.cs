@@ -360,19 +360,30 @@ namespace Messenger.Client
 
         private void UpdateUserStatus(User user)
         {
+            Console.WriteLine($"UpdateUserStatus: получили статус для {user.FullName} (Id={user.Id}) - онлайн={user.IsOnline}");
+            bool updated = false;
             foreach (var chat in chats)
             {
                 var p = chat.Participants?.FirstOrDefault(x => x.Id == user.Id);
                 if (p != null)
                 {
+                    Console.WriteLine($"  найден в чате {chat.Name}, старый статус {p.IsOnline}, новый {user.IsOnline}");
                     p.IsOnline = user.IsOnline;
                     p.LastSeen = user.LastSeen;
+                    updated = true;
                 }
             }
-            // Перезаполняем список чатов, чтобы статусы отобразились
-            UpdateChatsList();
+            if (updated)
+            {
+                Console.WriteLine("  Обновляем список чатов...");
+                UpdateChatsList(); // перезаполняем список
+            }
+            else
+            {
+                Console.WriteLine("  Участник не найден ни в одном чате");
+            }
 
-            // Если текущий чат – личный с этим пользователем, обновляем заголовок
+            // Обновляем заголовок текущего чата, если нужно
             if (currentChat?.Type == ChatType.Private)
             {
                 var other = currentChat.Participants?.FirstOrDefault(p => p.Id == user.Id);
@@ -384,7 +395,6 @@ namespace Messenger.Client
             }
             else if (currentChat?.Type == ChatType.Group || currentChat?.Type == ChatType.Department)
             {
-                // Можно обновить количество онлайн в групповом чате
                 int onlineCount = currentChat.Participants?.Count(p => p.IsOnline) ?? 0;
                 if (currentChat.Type == ChatType.Group)
                     lblChatInfo.Text = $"Групповой чат • {currentChat.Participants.Count} уч. • {onlineCount} онлайн";
@@ -488,7 +498,7 @@ namespace Messenger.Client
 
             // Выбираем иконку в зависимости от типа чата
             string icon = chat.Type == ChatType.Private ? "👤" : "👥";
-            using (var iconFont = new Font("Segoe UI", 16))
+            using (var iconFont = new Font("Segoe UI Emoji", 16))
             {
                 e.Graphics.DrawString(icon, iconFont, Brushes.Gray, e.Bounds.X + 10, e.Bounds.Y + 10);
             }
@@ -496,6 +506,7 @@ namespace Messenger.Client
             int x = e.Bounds.X + 50;
             using (var font = new Font("Segoe UI", 11, FontStyle.Bold))
                 e.Graphics.DrawString(chat.Name, font, Brushes.White, x, e.Bounds.Y + 15);
+
             if (chat.Type == ChatType.Private && chat.Participants != null)
             {
                 var other = chat.Participants.FirstOrDefault(p => p.Id != currentUser?.Id);

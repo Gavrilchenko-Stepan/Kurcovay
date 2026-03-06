@@ -94,13 +94,13 @@ namespace Messenger.Client
 
         public void Disconnect()
         {
-            isConnected = false;
             try
             {
                 if (isConnected)
                 {
                     SendPacket(new NetworkPacket { Command = CommandType.Logout });
                 }
+                isConnected = false;
                 reader?.Close();
                 writer?.Close();
                 stream?.Close();
