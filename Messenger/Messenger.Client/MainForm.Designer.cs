@@ -268,7 +268,7 @@ namespace Messenger.Client
             //
             this.lstChats.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);
             this.lstChats.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.lstChats.DrawMode = System.Windows.Forms.DrawMode.Normal;
+            this.lstChats.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.lstChats.ForeColor = System.Drawing.Color.White;
             this.lstChats.IntegralHeight = false;
             this.lstChats.ItemHeight = 70;
@@ -277,6 +277,7 @@ namespace Messenger.Client
             this.lstChats.Size = new System.Drawing.Size(350, 495);
             this.lstChats.TabIndex = 1;
             this.lstChats.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            this.lstChats.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LstChats_DrawItem);
             // 
             // panelLeftFooter
             // 
@@ -363,7 +364,7 @@ namespace Messenger.Client
             this.lstMessages.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.lstMessages.ForeColor = System.Drawing.Color.White;
             this.lstMessages.IntegralHeight = false;
-            this.lstMessages.ItemHeight = 60;
+            this.lstMessages.ItemHeight = 80;
             this.lstMessages.Location = new System.Drawing.Point(10, 90);
             this.lstMessages.Name = "lstMessages";
             this.lstMessages.Size = new System.Drawing.Size(830, 435);

@@ -284,14 +284,17 @@ namespace Messenger.Server
             lock (dbLock)
             {
                 string query = @"
-                    SELECT c.id, c.name, c.type,
-                        (SELECT text FROM messages WHERE chat_id = c.id ORDER BY sent_at DESC LIMIT 1) as last_message,
-                        (SELECT sent_at FROM messages WHERE chat_id = c.id ORDER BY sent_at DESC LIMIT 1) as last_time,
-                        (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id AND m.id > COALESCE((SELECT last_read_message_id FROM user_chat_read WHERE user_id = @uid AND chat_id = c.id),0)) as unread
-                    FROM chats c
-                    JOIN chat_participants cp ON c.id = cp.chat_id
-                    WHERE cp.user_id = @uid
-                    ORDER BY last_time DESC";
+            SELECT c.id, c.name, c.type,
+                (SELECT text FROM messages WHERE chat_id = c.id ORDER BY sent_at DESC LIMIT 1) as last_message,
+                (SELECT sent_at FROM messages WHERE chat_id = c.id ORDER BY sent_at DESC LIMIT 1) as last_time,
+                (SELECT COUNT(*) FROM messages m 
+                 WHERE m.chat_id = c.id 
+                   AND m.id > COALESCE((SELECT last_read_message_id FROM user_chat_read WHERE user_id = @uid AND chat_id = c.id),0)
+                   AND m.sender_id != @uid) as unread
+            FROM chats c
+            JOIN chat_participants cp ON c.id = cp.chat_id
+            WHERE cp.user_id = @uid
+            ORDER BY last_time DESC";
                 using (var cmd = new SQLiteCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@uid", userId);
@@ -450,11 +453,13 @@ namespace Messenger.Server
             lock (dbLock)
             {
                 string query = @"
-                    SELECT m.id, m.chat_id, m.sender_id, m.text, m.sent_at, m.is_read, u.full_name
-                    FROM messages m
-                    JOIN users u ON m.sender_id = u.id
-                    WHERE m.chat_id = @cid
-                    ORDER BY m.sent_at ASC LIMIT 100";
+            SELECT m.id, m.chat_id, m.sender_id, m.text, m.sent_at, m.is_read, 
+                   u.full_name, d.name as department_name
+            FROM messages m
+            JOIN users u ON m.sender_id = u.id
+            JOIN departments d ON u.department_id = d.id
+            WHERE m.chat_id = @cid
+            ORDER BY m.sent_at ASC LIMIT 100";
                 using (var cmd = new SQLiteCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@cid", chatId);
@@ -470,7 +475,8 @@ namespace Messenger.Server
                                 Text = reader.GetString(3),
                                 SentAt = reader.GetDateTime(4),
                                 IsRead = reader.GetBoolean(5),
-                                SenderName = reader.GetString(6)
+                                SenderName = reader.GetString(6),
+                                SenderDepartment = reader.GetString(7) // новое поле
                             });
                         }
                     }

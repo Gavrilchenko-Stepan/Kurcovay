@@ -25,7 +25,13 @@ namespace Messenger.Client
         public MainForm()
         {
             InitializeComponent();
-            lstChats.DrawMode = DrawMode.Normal;
+            typeof(ListBox).InvokeMember("DoubleBuffered",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
+            null, lstChats, new object[] { true });
+            lstChats.DrawMode = DrawMode.OwnerDrawFixed;
+            lstChats.DrawItem += LstChats_DrawItem;
+            // отписываемся от события, если оно было подписано
+            lstMessages.DrawItem += LstMessages_DrawItem;
             ApplyFuturisticStyle();
             this.Load += MainForm_Load;
             this.FormClosing += MainForm_FormClosing;
@@ -38,8 +44,6 @@ namespace Messenger.Client
             this.txtSearchChats.TextChanged += TxtSearchChats_TextChanged;
             this.txtSearchChats.Enter += TxtSearchChats_Enter;
             this.txtSearchChats.Leave += TxtSearchChats_Leave;
-            lstMessages.DrawMode = DrawMode.Normal; // временно, чтобы проверить
-            lstMessages.DrawItem -= LstMessages_DrawItem; // отписываемся, если подписка была
         }
 
         private void ApplyFuturisticStyle()
@@ -144,7 +148,7 @@ namespace Messenger.Client
 
                     UpdateUIAfterLogin();
                     LoadChats();
-                    refreshTimer = new Timer { Interval = 30000 };
+                    refreshTimer = new Timer { Interval = 5000 };
                     refreshTimer.Tick += (s, e) => LoadChats();
                     refreshTimer.Start();
                     this.Show();
@@ -189,6 +193,16 @@ namespace Messenger.Client
                         var jsonElemChats = (JsonElement)packet.Data;
                         string jsonChats = jsonElemChats.GetRawText();
                         chats = JsonSerializer.Deserialize<List<Chat>>(jsonChats);
+                        // Преобразуем имена приватных чатов
+                        foreach (var chat in chats)
+                        {
+                            if (chat.Type == ChatType.Private && chat.Participants != null)
+                            {
+                                var other = chat.Participants.FirstOrDefault(p => p.Id != currentUser.Id);
+                                if (other != null)
+                                    chat.Name = other.FullName;
+                            }
+                        }
                         Console.WriteLine($"Получен список чатов: {chats.Count} чатов");
                         foreach (var c in chats) Console.WriteLine($"  - {c.Name} (Id={c.Id})");
                         UpdateChatsList();
@@ -200,22 +214,29 @@ namespace Messenger.Client
                         var msgs = JsonSerializer.Deserialize<List<Shared.Message>>(jsonMsgs);
                         if (msgs.Any())
                         {
-                            messages[msgs.First().ChatId] = msgs;
-                            if (currentChat != null && msgs.First().ChatId == currentChat.Id)
+                            int chatId = msgs.First().ChatId;
+                            Console.WriteLine($"Получен список сообщений для чата {chatId}, всего {msgs.Count}");
+                            messages[chatId] = msgs;
+                            if (currentChat != null && chatId == currentChat.Id)
                                 DisplayMessages();
+                        }
+                        else
+                        {
+                            Console.WriteLine("Получен пустой список сообщений");
                         }
                         break;
                     case Shared.CommandType.NewMessage:
                         var jsonElemNewMsg = (JsonElement)packet.Data;
                         string jsonNewMsg = jsonElemNewMsg.GetRawText();
                         var newMsg = JsonSerializer.Deserialize<Shared.Message>(jsonNewMsg);
-                        Console.WriteLine($"Получено новое сообщение: {newMsg.Text} в чат {newMsg.ChatId}");
+                        Console.WriteLine($"Получено новое сообщение: '{newMsg.Text}' в чат {newMsg.ChatId}");
                         HandleNewMessage(newMsg);
                         break;
                     case Shared.CommandType.UserStatusChanged:
                         var jsonElemUser = (JsonElement)packet.Data;
                         string jsonUser = jsonElemUser.GetRawText();
                         var user = JsonSerializer.Deserialize<User>(jsonUser);
+                        Console.WriteLine($"UserStatusChanged: {user.FullName} is {user.IsOnline}");
                         UpdateUserStatus(user);
                         break;
                     case Shared.CommandType.ChatCreated:
@@ -249,14 +270,12 @@ namespace Messenger.Client
 
         private void UpdateChatsList()
         {
+            lstChats.BeginUpdate();
             lstChats.Items.Clear();
             var sorted = chats.OrderByDescending(c => c.LastMessageTime).ToList();
             foreach (var chat in sorted)
-            {
                 lstChats.Items.Add(chat);
-                Console.WriteLine($"Добавлен в lstChats: {chat.Name}");
-            }
-            lstChats.Refresh();
+            lstChats.EndUpdate();
         }
 
         private void UpdateTotalUsers()
@@ -274,33 +293,44 @@ namespace Messenger.Client
             currentChat = chat;
             lblChatName.Text = chat.Name;
 
-            // Вместо switch-выражения используем if-else или обычный switch
-            if (chat.Type == ChatType.Private)
-                lblChatInfo.Text = "Личный чат";
-            else if (chat.Type == ChatType.Group)
-                lblChatInfo.Text = $"Групповой чат • {chat.Participants.Count} уч.";
-            else
-                lblChatInfo.Text = $"Чат • {chat.Participants.Count} уч.";
-
+            // Остальной код (сброс unread, очистка и т.д.)
             chat.UnreadCount = 0;
             UpdateChatsList();
             btnSend.Enabled = true;
 
-            if (!messages.ContainsKey(chat.Id))
-                networkClient.SendPacket(new NetworkPacket { Command = Shared.CommandType.GetMessages, UserId = currentUser.Id, Data = chat.Id });
-            else
-                DisplayMessages();
+            if (messages.ContainsKey(chat.Id))
+                messages.Remove(chat.Id);
+            lstMessages.Items.Clear();
+            networkClient.SendPacket(new NetworkPacket { Command = Shared.CommandType.GetMessages, UserId = currentUser.Id, Data = chat.Id });
+
+            // Обновляем заголовок с учётом статусов
+            UpdateCurrentChatHeader();
         }
 
         private void DisplayMessages()
         {
             lstMessages.Items.Clear();
-            if (messages.ContainsKey(currentChat.Id))
+            if (!messages.ContainsKey(currentChat.Id)) return;
+
+            var msgs = messages[currentChat.Id];
+            DateTime? lastDate = null;
+            foreach (var msg in msgs)
             {
-                foreach (var msg in messages[currentChat.Id])
-                    lstMessages.Items.Add(msg);
-                if (lstMessages.Items.Count > 0)
-                    lstMessages.TopIndex = lstMessages.Items.Count - 1;
+                if (lastDate == null || msg.SentAt.Date != lastDate.Value.Date)
+                {
+                    lstMessages.Items.Add(msg.SentAt.ToString("d MMMM yyyy"));
+                    lastDate = msg.SentAt.Date;
+                }
+                lstMessages.Items.Add(msg);
+            }
+            if (lstMessages.Items.Count > 0)
+                lstMessages.TopIndex = lstMessages.Items.Count - 1;
+
+            // Отправляем подтверждение прочтения последнего сообщения
+            if (msgs.Any())
+            {
+                int lastId = msgs.Max(m => m.Id);
+                SendReadReceipt(currentChat.Id, lastId);
             }
         }
 
@@ -322,11 +352,10 @@ namespace Messenger.Client
                 {
                     lstMessages.Items.Add(msg);
                     lstMessages.TopIndex = lstMessages.Items.Count - 1;
+                    // Отправляем подтверждение прочтения этого нового сообщения
+                    SendReadReceipt(msg.ChatId, msg.Id);
                 }
             }
-            Console.WriteLine($"Сообщение добавлено в список: {msg.Text}");
-            lstMessages.Items.Add(msg);
-            lstMessages.Refresh();
         }
 
         private void UpdateUserStatus(User user)
@@ -340,12 +369,34 @@ namespace Messenger.Client
                     p.LastSeen = user.LastSeen;
                 }
             }
-            lstChats.Invalidate();
+            // Перезаполняем список чатов, чтобы статусы отобразились
+            UpdateChatsList();
+
+            // Если текущий чат – личный с этим пользователем, обновляем заголовок
+            if (currentChat?.Type == ChatType.Private)
+            {
+                var other = currentChat.Participants?.FirstOrDefault(p => p.Id == user.Id);
+                if (other != null)
+                {
+                    string status = other.IsOnline ? "● Онлайн" : "● Офлайн";
+                    lblChatInfo.Text = $"Личный чат • {status}";
+                }
+            }
+            else if (currentChat?.Type == ChatType.Group || currentChat?.Type == ChatType.Department)
+            {
+                // Можно обновить количество онлайн в групповом чате
+                int onlineCount = currentChat.Participants?.Count(p => p.IsOnline) ?? 0;
+                if (currentChat.Type == ChatType.Group)
+                    lblChatInfo.Text = $"Групповой чат • {currentChat.Participants.Count} уч. • {onlineCount} онлайн";
+                else
+                    lblChatInfo.Text = $"Чат • {currentChat.Participants.Count} уч. • {onlineCount} онлайн";
+            }
         }
 
         private void SendMessage()
         {
             if (string.IsNullOrWhiteSpace(txtMessage.Text) || currentChat == null) return;
+
             var msg = new Shared.Message
             {
                 ChatId = currentChat.Id,
@@ -354,6 +405,15 @@ namespace Messenger.Client
                 Text = txtMessage.Text.Trim(),
                 SentAt = DateTime.Now
             };
+
+            // Локально добавляем в список (чтобы сразу увидеть)
+            if (!messages.ContainsKey(msg.ChatId))
+                messages[msg.ChatId] = new List<Shared.Message>();
+            messages[msg.ChatId].Add(msg);
+            lstMessages.Items.Add(msg);
+            lstMessages.TopIndex = lstMessages.Items.Count - 1;
+
+            // Отправляем на сервер
             networkClient.SendPacket(new NetworkPacket { Command = Shared.CommandType.SendMessage, UserId = currentUser.Id, Data = msg });
             txtMessage.Clear();
         }
@@ -426,16 +486,31 @@ namespace Messenger.Client
             using (var brush = new SolidBrush(backColor))
                 e.Graphics.FillRectangle(brush, e.Bounds);
 
-            // аватар-круг
-            using (var brush = new SolidBrush(Color.FromArgb(63, 81, 181)))
+            // Выбираем иконку в зависимости от типа чата
+            string icon = chat.Type == ChatType.Private ? "👤" : "👥";
+            using (var iconFont = new Font("Segoe UI", 16))
             {
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                e.Graphics.FillEllipse(brush, e.Bounds.X + 10, e.Bounds.Y + 10, 40, 40);
+                e.Graphics.DrawString(icon, iconFont, Brushes.Gray, e.Bounds.X + 10, e.Bounds.Y + 10);
             }
 
-            int x = e.Bounds.X + 60;
+            int x = e.Bounds.X + 50;
             using (var font = new Font("Segoe UI", 11, FontStyle.Bold))
                 e.Graphics.DrawString(chat.Name, font, Brushes.White, x, e.Bounds.Y + 15);
+            if (chat.Type == ChatType.Private && chat.Participants != null)
+            {
+                var other = chat.Participants.FirstOrDefault(p => p.Id != currentUser?.Id);
+                if (other != null)
+                {
+                    string statusText = other.IsOnline ? "● Онлайн" : "● Офлайн";
+                    Color statusColor = other.IsOnline ? Color.FromArgb(76, 175, 80) : Color.Gray;
+                    using (var statusFont = new Font("Segoe UI", 8, FontStyle.Bold))
+                    using (var brush = new SolidBrush(statusColor))
+                    {
+                        var nameSize = e.Graphics.MeasureString(chat.Name, new Font("Segoe UI", 11, FontStyle.Bold));
+                        e.Graphics.DrawString(statusText, statusFont, brush, x + nameSize.Width + 10, e.Bounds.Y + 18);
+                    }
+                }
+            }
 
             if (!string.IsNullOrEmpty(chat.LastMessage))
             {
@@ -472,35 +547,130 @@ namespace Messenger.Client
 
         private void LstMessages_DrawItem(object sender, DrawItemEventArgs e)
         {
-            if (e.Index < 0 || !(lstMessages.Items[e.Index] is Shared.Message msg)) return;
+            if (e.Index < 0) return;
+
+            // Разделитель даты
+            if (lstMessages.Items[e.Index] is string dateStr)
+            {
+                e.DrawBackground();
+                using (var font = new Font("Segoe UI", 9, FontStyle.Bold))
+                using (var brush = new SolidBrush(Color.FromArgb(180, 180, 200)))
+                {
+                    var sf = new StringFormat
+                    {
+                        Alignment = StringAlignment.Center,
+                        LineAlignment = StringAlignment.Center
+                    };
+                    e.Graphics.DrawString(dateStr, font, brush, e.Bounds, sf);
+                }
+                e.DrawFocusRectangle();
+                return;
+            }
+
+            if (!(lstMessages.Items[e.Index] is Shared.Message msg)) return;
+
             e.DrawBackground();
 
             bool isMy = msg.SenderId == currentUser.Id;
             int maxWidth = 400;
             int x = isMy ? e.Bounds.Width - maxWidth - 20 : e.Bounds.X + 20;
+            int y = e.Bounds.Y + 4;
 
             Color bgColor = isMy ? Color.FromArgb(0, 229, 255, 80) : Color.FromArgb(60, 60, 80);
             Color borderColor = isMy ? Color.FromArgb(0, 229, 255) : Color.Gray;
 
-            Rectangle msgRect = new Rectangle(x, e.Bounds.Y + 2, maxWidth, e.Bounds.Height - 4);
+            Rectangle msgRect = new Rectangle(x, y, maxWidth, e.Bounds.Height - 12);
+
             using (var brush = new SolidBrush(bgColor))
-            using (var pen = new Pen(borderColor))
+            using (var pen = new Pen(borderColor, 1))
+            using (var path = GetRoundedRect(msgRect, 10))
             {
-                e.Graphics.FillRectangle(brush, msgRect);
-                e.Graphics.DrawRectangle(pen, msgRect);
+                e.Graphics.FillPath(brush, path);
+                e.Graphics.DrawPath(pen, path);
             }
 
+            // Полное имя отправителя
+            string senderDisplay = string.IsNullOrEmpty(msg.SenderDepartment)
+                    ? msg.SenderName
+                    : $"{msg.SenderName} ({msg.SenderDepartment})";
             using (var font = new Font("Segoe UI", 9, FontStyle.Bold))
-                e.Graphics.DrawString(msg.SenderName, font, Brushes.White, x + 5, e.Bounds.Y + 5);
+            using (var brush = new SolidBrush(Color.White))
+            {
+                e.Graphics.DrawString(senderDisplay, font, brush, x + 10, y + 5);
+            }
+
+            // Текст сообщения
             using (var font = new Font("Segoe UI", 10))
-                e.Graphics.DrawString(msg.Text, font, Brushes.White, x + 5, e.Bounds.Y + 25);
+            using (var brush = new SolidBrush(Color.White))
+            {
+                e.Graphics.DrawString(msg.Text, font, brush, x + 10, y + 25);
+            }
+
+            // Время
             string tm = msg.SentAt.ToString("HH:mm");
             using (var font = new Font("Segoe UI", 8))
+            using (var brush = new SolidBrush(Color.Gray))
             {
                 var sz = e.Graphics.MeasureString(tm, font);
-                e.Graphics.DrawString(tm, font, Brushes.Gray, x + maxWidth - sz.Width - 10, e.Bounds.Y + 45);
+                e.Graphics.DrawString(tm, font, brush, x + maxWidth - sz.Width - 10, y + 45);
             }
+
             e.DrawFocusRectangle();
+        }
+
+        // Создание скруглённого прямоугольника
+        private GraphicsPath GetRoundedRect(Rectangle rect, int radius)
+        {
+            GraphicsPath path = new GraphicsPath();
+            path.AddArc(rect.X, rect.Y, radius, radius, 180, 90);
+            path.AddArc(rect.Right - radius, rect.Y, radius, radius, 270, 90);
+            path.AddArc(rect.Right - radius, rect.Bottom - radius, radius, radius, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - radius, radius, radius, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        private void SendReadReceipt(int chatId, int lastReadId)
+        {
+            var data = new Dictionary<string, int>
+            {
+                { "chatId", chatId },
+                { "lastReadMessageId", lastReadId }
+            };
+
+            networkClient.SendPacket(new NetworkPacket
+            {
+                Command = Shared.CommandType.MessagesRead,
+                UserId = currentUser.Id,
+                Data = data
+            });
+        }
+
+        private void UpdateCurrentChatHeader()
+        {
+            if (currentChat == null) return;
+
+            if (currentChat.Type == ChatType.Private)
+            {
+                var other = currentChat.Participants?.FirstOrDefault(p => p.Id != currentUser.Id);
+                if (other != null)
+                {
+                    string status = other.IsOnline ? "● Онлайн" : "● Офлайн";
+                    lblChatInfo.Text = $"Личный чат • {status}";
+                }
+                else
+                    lblChatInfo.Text = "Личный чат";
+            }
+            else if (currentChat.Type == ChatType.Group)
+            {
+                int onlineCount = currentChat.Participants?.Count(p => p.IsOnline) ?? 0;
+                lblChatInfo.Text = $"Групповой чат • {currentChat.Participants.Count} уч. • {onlineCount} онлайн";
+            }
+            else // Department
+            {
+                int onlineCount = currentChat.Participants?.Count(p => p.IsOnline) ?? 0;
+                lblChatInfo.Text = $"Чат • {currentChat.Participants.Count} уч. • {onlineCount} онлайн";
+            }
         }
     }
 }

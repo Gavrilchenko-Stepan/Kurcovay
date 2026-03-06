@@ -77,6 +77,12 @@ namespace Messenger.Server
                 case CommandType.CreatePrivateChat: HandleCreatePrivateChat(packet); break;
                 case CommandType.CreateGroupChat: HandleCreateGroupChat(packet); break;
                 case CommandType.Logout: Disconnect(); break;
+                case CommandType.MessagesRead:
+                    HandleMessagesRead(packet);
+                    break;
+                case CommandType.UserStatusChanged:
+                    SendPacket(packet);
+                    break;
             }
         }
 
@@ -130,7 +136,16 @@ namespace Messenger.Server
         {
             if (User == null) return;
             var jsonElement = (JsonElement)packet.Data;
-            int chatId = jsonElement.GetInt32(); // получаем число напрямую
+            int chatId = jsonElement.GetInt32();
+
+            // Проверяем, имеет ли пользователь доступ к чату
+            if (!db.UserHasAccessToChat(User.Id, chatId))
+            {
+                server.Log($"Пользователь {User.Id} пытается получить сообщения из чата {chatId} без доступа");
+                SendPacket(new NetworkPacket { Command = CommandType.MessagesList, Data = new List<Message>() });
+                return;
+            }
+
             var msgs = db.GetChatMessages(chatId, User.Id);
             SendPacket(new NetworkPacket { Command = CommandType.MessagesList, Data = msgs });
         }
@@ -138,12 +153,19 @@ namespace Messenger.Server
         private void HandleSendMessage(NetworkPacket packet)
         {
             if (User == null) return;
-            // Здесь packet.Data – это JsonElement, содержащий объект Message
             var jsonElement = (JsonElement)packet.Data;
             string json = jsonElement.GetRawText();
             var msg = JsonSerializer.Deserialize<Message>(json);
+
+            if (!db.UserHasAccessToChat(User.Id, msg.ChatId))
+            {
+                server.Log($"Пользователь {User.Id} пытается отправить в чат {msg.ChatId} без доступа");
+                return;
+            }
+
             msg.SenderId = User.Id;
             msg.SenderName = User.FullName;
+            msg.SenderDepartment = User.Department; // добавляем отдел
             msg.SentAt = DateTime.Now;
             int id = db.SaveMessage(msg);
             msg.Id = id;
@@ -203,6 +225,16 @@ namespace Messenger.Server
                 server.BroadcastToUser(uid, new NetworkPacket { Command = CommandType.ChatsList, Data = chats });
             }
             server.Log($"Создан групповой чат '{name}'");
+        }
+
+        private void HandleMessagesRead(NetworkPacket packet)
+        {
+            if (User == null) return;
+            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(packet.Data.ToString());
+            int chatId = data["chatId"];
+            int lastReadId = data["lastReadMessageId"];
+            db.MarkMessagesAsRead(chatId, User.Id, lastReadId);
+            server.Log($"Пользователь {User.Id} отметил сообщения в чате {chatId} прочитанными до {lastReadId}");
         }
 
         public void SendPacket(NetworkPacket packet)
