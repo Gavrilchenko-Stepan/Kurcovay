@@ -20,9 +20,8 @@ namespace Messenger.Client
         private NetworkClient networkClient;
         private List<Department> departments = new List<Department>();
         private List<User> availableUsers = new List<User>();
-        private ImageList avatarImageList;
 
-        public NewChatForm(int userId, string department, NetworkClient client)
+        public NewChatForm(int userId, string department, NetworkClient client, bool isAdmin)
         {
             InitializeComponent();
             ApplyFuturisticStyle();
@@ -36,14 +35,24 @@ namespace Messenger.Client
             btnCreate.Click += BtnCreate_Click;
             btnCancel.Click += BtnCancel_Click;
             lstDepartments.SelectedIndexChanged += LstDepartments_SelectedIndexChanged;
-            lvPrivateUsers.SelectedIndexChanged += LvPrivateUsers_SelectedIndexChanged;
+            tvPrivateUsers.NodeMouseDoubleClick += TvPrivateUsers_NodeMouseDoubleClick;
+            tvPrivateUsers.AfterSelect += TvPrivateUsers_AfterSelect;
             lvGroupUsers.ItemChecked += LvGroupUsers_ItemChecked;
             txtChatName.TextChanged += TxtChatName_TextChanged;
             tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
 
-            avatarImageList = new ImageList();
-            avatarImageList.ImageSize = new Size(40, 40);
-            avatarImageList.ColorDepth = ColorDepth.Depth32Bit;
+            // Если пользователь не админ – удаляем вкладку "Отдел"
+            if (!isAdmin)
+            {
+                for (int i = 0; i < tabControl.TabPages.Count; i++)
+                {
+                    if (tabControl.TabPages[i].Text == "Отдел")
+                    {
+                        tabControl.TabPages.RemoveAt(i);
+                        break;
+                    }
+                }
+            }
         }
 
         private void ApplyFuturisticStyle()
@@ -60,6 +69,8 @@ namespace Messenger.Client
             txtSearch.ForeColor = Color.White;
             lstDepartments.BackColor = Color.FromArgb(60, 60, 80);
             lstDepartments.ForeColor = Color.White;
+            tvPrivateUsers.BackColor = Color.FromArgb(60, 60, 80);
+            tvPrivateUsers.ForeColor = Color.White;
             txtChatName.BackColor = Color.FromArgb(60, 60, 80);
             txtChatName.ForeColor = Color.White;
             btnCreate.BackColor = Color.FromArgb(0, 229, 255);
@@ -118,20 +129,27 @@ namespace Messenger.Client
 
         private void UpdateUsersList()
         {
-            lvPrivateUsers.Items.Clear();
-            lvGroupUsers.Items.Clear();
-
-            foreach (var user in availableUsers.Where(u => u.Id != currentUserId))
+            tvPrivateUsers.Nodes.Clear();
+            var usersByDept = availableUsers.Where(u => u.Id != currentUserId)
+                                             .GroupBy(u => u.Department)
+                                             .OrderBy(g => g.Key);
+            foreach (var group in usersByDept)
             {
-                var itemPrivate = new ListViewItem(user.FullName);
-                itemPrivate.Tag = user;
-                lvPrivateUsers.Items.Add(itemPrivate);
-
-                var itemGroup = new ListViewItem(user.FullName);
-                itemGroup.Tag = user;
-                lvGroupUsers.Items.Add(itemGroup);
+                TreeNode deptNode = new TreeNode(group.Key);
+                deptNode.ForeColor = Color.White;
+                foreach (var user in group.OrderBy(u => u.FullName))
+                {
+                    string display = string.IsNullOrEmpty(user.Position)
+                        ? user.FullName
+                        : $"{user.FullName} ({user.Position})";
+                    TreeNode userNode = new TreeNode(display);
+                    userNode.Tag = user;
+                    userNode.ForeColor = Color.White;
+                    deptNode.Nodes.Add(userNode);
+                }
+                tvPrivateUsers.Nodes.Add(deptNode);
             }
-
+            tvPrivateUsers.ExpandAll();
             UpdateCreateButton();
         }
 
@@ -140,16 +158,28 @@ namespace Messenger.Client
             if (tabControl.SelectedTab == tabDepartment)
                 btnCreate.Enabled = lstDepartments.SelectedItem != null;
             else if (tabControl.SelectedTab == tabPrivate)
-                btnCreate.Enabled = lvPrivateUsers.SelectedItems.Count > 0;
+                btnCreate.Enabled = tvPrivateUsers.SelectedNode?.Tag is User;
             else
                 btnCreate.Enabled = !string.IsNullOrWhiteSpace(txtChatName.Text) && lvGroupUsers.CheckedItems.Count > 0;
         }
 
         private void TabControl_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
         private void LstDepartments_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
-        private void LvPrivateUsers_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
+        private void TvPrivateUsers_AfterSelect(object sender, TreeViewEventArgs e) => UpdateCreateButton();
         private void LvGroupUsers_ItemChecked(object sender, ItemCheckedEventArgs e) => UpdateCreateButton();
         private void TxtChatName_TextChanged(object sender, EventArgs e) => UpdateCreateButton();
+
+        private void TvPrivateUsers_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            if (e.Node.Tag is User user)
+            {
+                networkClient.SendPacket(new NetworkPacket
+                {
+                    Command = Shared.CommandType.CreatePrivateChat,
+                    Data = new { otherUserId = user.Id }
+                });
+            }
+        }
 
         private void BtnCreate_Click(object sender, EventArgs e)
         {
@@ -165,13 +195,12 @@ namespace Messenger.Client
                     Data = new { name = dept.Name, participants }
                 });
             }
-            else if (tabControl.SelectedTab == tabPrivate && lvPrivateUsers.SelectedItems.Count > 0)
+            else if (tabControl.SelectedTab == tabPrivate && tvPrivateUsers.SelectedNode?.Tag is User selectedUser)
             {
-                var user = (User)lvPrivateUsers.SelectedItems[0].Tag;
                 networkClient.SendPacket(new NetworkPacket
                 {
                     Command = Shared.CommandType.CreatePrivateChat,
-                    Data = new { otherUserId = user.Id }
+                    Data = new { otherUserId = selectedUser.Id }
                 });
             }
             else if (tabControl.SelectedTab == tabGroup)

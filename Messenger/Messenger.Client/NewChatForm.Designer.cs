@@ -6,24 +6,24 @@ namespace Messenger.Client
     {
         private System.ComponentModel.IContainer components = null;
 
-        private System.Windows.Forms.Panel panelMain;
-        private System.Windows.Forms.Panel panelHeader;
-        private System.Windows.Forms.Label lblTitle;
-        private System.Windows.Forms.Label lblSubtitle;
-        private System.Windows.Forms.TextBox txtSearch;
-        private System.Windows.Forms.PictureBox picSearch;
-        private System.Windows.Forms.TabControl tabControl;
-        private System.Windows.Forms.TabPage tabDepartment;
-        private System.Windows.Forms.TabPage tabPrivate;
-        private System.Windows.Forms.TabPage tabGroup;
-        private System.Windows.Forms.ListBox lstDepartments;
-        private System.Windows.Forms.ListView lvPrivateUsers;
-        private System.Windows.Forms.ListView lvGroupUsers;
-        private System.Windows.Forms.Label lblChatName;
-        private System.Windows.Forms.TextBox txtChatName;
-        private System.Windows.Forms.Panel panelFooter;
-        private System.Windows.Forms.Button btnCreate;
-        private System.Windows.Forms.Button btnCancel;
+        private Panel panelMain;
+        private Panel panelHeader;
+        private Label lblTitle;
+        private Label lblSubtitle;
+        private TextBox txtSearch;
+        private PictureBox picSearch;
+        private TabControl tabControl;
+        private TabPage tabDepartment;
+        private TabPage tabPrivate;
+        private TabPage tabGroup;
+        private ListBox lstDepartments;
+        private TreeView tvPrivateUsers;      // <-- заменяем ListView на TreeView
+        private ListView lvGroupUsers;
+        private Label lblChatName;
+        private TextBox txtChatName;
+        private Panel panelFooter;
+        private Button btnCreate;
+        private Button btnCancel;
 
         protected override void Dispose(bool disposing)
         {
@@ -46,7 +46,7 @@ namespace Messenger.Client
             this.picSearch = new System.Windows.Forms.PictureBox();
             this.lstDepartments = new System.Windows.Forms.ListBox();
             this.tabPrivate = new System.Windows.Forms.TabPage();
-            this.lvPrivateUsers = new System.Windows.Forms.ListView();
+            this.tvPrivateUsers = new System.Windows.Forms.TreeView();   // <-- новое
             this.tabGroup = new System.Windows.Forms.TabPage();
             this.lblChatName = new System.Windows.Forms.Label();
             this.txtChatName = new System.Windows.Forms.TextBox();
@@ -170,7 +170,7 @@ namespace Messenger.Client
 
             // tabPrivate
             this.tabPrivate.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);
-            this.tabPrivate.Controls.Add(this.lvPrivateUsers);
+            this.tabPrivate.Controls.Add(this.tvPrivateUsers);
             this.tabPrivate.Location = new System.Drawing.Point(4, 26);
             this.tabPrivate.Name = "tabPrivate";
             this.tabPrivate.Padding = new System.Windows.Forms.Padding(15);
@@ -178,20 +178,15 @@ namespace Messenger.Client
             this.tabPrivate.Text = "Личный";
             this.tabPrivate.ForeColor = System.Drawing.Color.White;
 
-            // lvPrivateUsers
-            this.lvPrivateUsers.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
-            this.lvPrivateUsers.ForeColor = System.Drawing.Color.White;
-            this.lvPrivateUsers.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.lvPrivateUsers.FullRowSelect = true;
-            this.lvPrivateUsers.HideSelection = false;
-            this.lvPrivateUsers.MultiSelect = false;
-            this.lvPrivateUsers.View = System.Windows.Forms.View.Details;
-            this.lvPrivateUsers.Location = new System.Drawing.Point(15, 15);
-            this.lvPrivateUsers.Name = "lvPrivateUsers";
-            this.lvPrivateUsers.Size = new System.Drawing.Size(460, 355);
-            this.lvPrivateUsers.TabIndex = 0;
-            this.lvPrivateUsers.UseCompatibleStateImageBehavior = false;
-            this.lvPrivateUsers.Columns.Add("Пользователи", 430);
+            // tvPrivateUsers
+            this.tvPrivateUsers.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
+            this.tvPrivateUsers.ForeColor = System.Drawing.Color.White;
+            this.tvPrivateUsers.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.tvPrivateUsers.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tvPrivateUsers.Location = new System.Drawing.Point(15, 15);
+            this.tvPrivateUsers.Name = "tvPrivateUsers";
+            this.tvPrivateUsers.Size = new System.Drawing.Size(460, 355);
+            this.tvPrivateUsers.TabIndex = 0;
 
             // tabGroup
             this.tabGroup.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);

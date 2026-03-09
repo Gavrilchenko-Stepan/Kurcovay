@@ -27,6 +27,15 @@ namespace Messenger.Shared
         AvailableUsersList,
         CreatePrivateChat,
         CreateGroupChat,
-        MessagesRead
+        MessagesRead,
+
+        GetDepartmentChat,
+        DepartmentChatInfo,
+        AddChatParticipant,
+        RemoveChatParticipant,
+
+        ChatUpdated,
+        ChatInfo,
+        GetChatInfo
     }
 }

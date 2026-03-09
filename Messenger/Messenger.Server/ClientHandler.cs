@@ -83,6 +83,15 @@ namespace Messenger.Server
                 case CommandType.UserStatusChanged:
                     SendPacket(packet);
                     break;
+                case CommandType.AddChatParticipant:
+                    HandleAddParticipant(packet);
+                    break;
+                case CommandType.RemoveChatParticipant:
+                    HandleRemoveParticipant(packet);
+                    break;
+                case CommandType.GetChatInfo:
+                    HandleGetChatInfo(packet);
+                    break;
             }
         }
 
@@ -157,7 +166,19 @@ namespace Messenger.Server
             string json = jsonElement.GetRawText();
             var msg = JsonSerializer.Deserialize<Message>(json);
 
-            if (!db.UserHasAccessToChat(User.Id, msg.ChatId))
+            bool hasAccess = db.UserHasAccessToChat(User.Id, msg.ChatId);
+
+            // Если нет доступа, но пользователь администратор – проверим, не чат ли это отдела
+            if (!hasAccess && User.IsAdmin)
+            {
+                var chat = db.GetChatById(msg.ChatId);
+                if (chat != null && chat.Type == ChatType.Department)
+                {
+                    hasAccess = true; // администратор может писать в любой чат отдела
+                }
+            }
+
+            if (!hasAccess)
             {
                 server.Log($"Пользователь {User.Id} пытается отправить в чат {msg.ChatId} без доступа");
                 return;
@@ -165,7 +186,7 @@ namespace Messenger.Server
 
             msg.SenderId = User.Id;
             msg.SenderName = User.FullName;
-            msg.SenderDepartment = User.Department; // добавляем отдел
+            msg.SenderDepartment = User.Department;
             msg.SentAt = DateTime.Now;
             int id = db.SaveMessage(msg);
             msg.Id = id;
@@ -230,7 +251,9 @@ namespace Messenger.Server
         private void HandleMessagesRead(NetworkPacket packet)
         {
             if (User == null) return;
-            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(packet.Data.ToString());
+            var jsonElement = (JsonElement)packet.Data;
+            string json = jsonElement.GetRawText();
+            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(json);
             int chatId = data["chatId"];
             int lastReadId = data["lastReadMessageId"];
             db.MarkMessagesAsRead(chatId, User.Id, lastReadId);
@@ -271,6 +294,75 @@ namespace Messenger.Server
             catch (Exception ex)
             {
                 server.Log($"Ошибка при отключении: {ex.Message}");
+            }
+        }
+
+        private void HandleAddParticipant(NetworkPacket packet)
+        {
+            if (User == null || !User.IsAdmin) return;
+
+            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(packet.Data.ToString());
+            int chatId = data["chatId"];
+            int userId = data["userId"];
+
+            var chat = db.GetChatById(chatId);
+            // Разрешаем только для чатов отделов и групповых
+            if (chat == null || (chat.Type != ChatType.Department && chat.Type != ChatType.Group)) return;
+
+            db.AddUserToChat(chatId, userId);
+
+            // Отправить обновлённый чат всем участникам
+            var updatedChat = db.GetChatById(chatId);
+            updatedChat.Participants = db.GetChatParticipants(chatId);
+            server.BroadcastToChat(chatId, new NetworkPacket { Command = CommandType.ChatUpdated, Data = updatedChat });
+
+            // Обновить список чатов у нового участника
+            var userChats = db.GetUserChats(userId);
+            server.BroadcastToUser(userId, new NetworkPacket { Command = CommandType.ChatsList, Data = userChats });
+
+            server.Log($"Администратор {User.FullName} добавил пользователя {userId} в чат {chatId}");
+        }
+
+        private void HandleRemoveParticipant(NetworkPacket packet)
+        {
+            if (User == null || !User.IsAdmin) return;
+
+            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(packet.Data.ToString());
+            int chatId = data["chatId"];
+            int userId = data["userId"];
+
+            // Нельзя удалить самого себя
+            if (userId == User.Id)
+            {
+                server.Log($"Администратор {User.FullName} попытался удалить себя из чата {chatId}");
+                return;
+            }
+
+            var chat = db.GetChatById(chatId);
+            if (chat == null || (chat.Type != ChatType.Department && chat.Type != ChatType.Group)) return;
+
+            db.RemoveUserFromChat(chatId, userId);
+
+            var updatedChat = db.GetChatById(chatId);
+            updatedChat.Participants = db.GetChatParticipants(chatId);
+            server.BroadcastToChat(chatId, new NetworkPacket { Command = CommandType.ChatUpdated, Data = updatedChat });
+
+            // Удалённому пользователю отправить обновлённый список чатов (чат исчезнет)
+            var userChats = db.GetUserChats(userId);
+            server.BroadcastToUser(userId, new NetworkPacket { Command = CommandType.ChatsList, Data = userChats });
+
+            server.Log($"Администратор {User.FullName} удалил пользователя {userId} из чата {chatId}");
+        }
+
+        private void HandleGetChatInfo(NetworkPacket packet)
+        {
+            if (User == null) return;
+            int chatId = Convert.ToInt32(packet.Data);
+            var chat = db.GetChatById(chatId);
+            if (chat != null)
+            {
+                chat.Participants = db.GetChatParticipants(chatId);
+                SendPacket(new NetworkPacket { Command = CommandType.ChatInfo, Data = chat });
             }
         }
     }

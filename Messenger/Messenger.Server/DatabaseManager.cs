@@ -9,7 +9,7 @@ using Messenger.Shared;
 
 namespace Messenger.Server
 {
-    public class DatabaseManager
+    public class DatabaseManager: IDisposable
     {
         private SQLiteConnection connection;
         private readonly object dbLock = new object();
@@ -54,6 +54,7 @@ namespace Messenger.Server
                     full_name TEXT NOT NULL,
                     department_id INTEGER NOT NULL,
                     position TEXT,
+                    is_admin INTEGER DEFAULT 0,          -- <-- новое поле
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE RESTRICT
                 );
@@ -69,9 +70,11 @@ namespace Messenger.Server
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     type TEXT NOT NULL CHECK(type IN ('Department', 'Private', 'Group')),
+                    department_id INTEGER,                -- <-- новое поле (для связи с отделом)
                     created_by INTEGER,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+                    FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL,
+                    FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE IF NOT EXISTS chat_participants (
@@ -121,15 +124,16 @@ namespace Messenger.Server
                     new SQLiteCommand("INSERT INTO departments (name) VALUES ('Администрация')", connection).ExecuteNonQuery();
                     long deptId = (long)new SQLiteCommand("SELECT id FROM departments WHERE name='Администрация'", connection).ExecuteScalar();
 
-                    using (var cmd = new SQLiteCommand("INSERT INTO users (username, password, full_name, department_id) VALUES (@u, @p, @f, @d)", connection))
+                    using (var cmd = new SQLiteCommand("INSERT INTO users (username, password, full_name, department_id, is_admin) VALUES (@u, @p, @f, @d, @a)", connection))
                     {
                         cmd.Parameters.AddWithValue("@u", "admin");
                         cmd.Parameters.AddWithValue("@p", "admin");
                         cmd.Parameters.AddWithValue("@f", "Главный администратор");
                         cmd.Parameters.AddWithValue("@d", deptId);
+                        cmd.Parameters.AddWithValue("@a", 1); // admin
                         cmd.ExecuteNonQuery();
                     }
-                    Console.WriteLine("Создан пользователь admin/admin для первого входа.");
+                    Console.WriteLine("Создан пользователь admin/admin для первого входа (администратор).");
                 }
             }
         }
@@ -145,27 +149,8 @@ namespace Messenger.Server
         {
             lock (dbLock)
             {
-                Console.WriteLine($"🔍 AuthenticateUser: ищем {username} с паролем {password}");
-
-                // Проверим, есть ли вообще такой пользователь
-                using (var checkCmd = new SQLiteCommand("SELECT * FROM users WHERE username = @username", connection))
-                {
-                    checkCmd.Parameters.AddWithValue("@username", username);
-                    using (var checkReader = checkCmd.ExecuteReader())
-                    {
-                        if (checkReader.Read())
-                        {
-                            Console.WriteLine($"✅ Пользователь {username} найден в БД. Пароль в БД: {checkReader["password"]}");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"❌ Пользователь {username} не найден в БД");
-                        }
-                    }
-                }
-
                 string query = @"
-            SELECT u.id, u.username, u.password, u.full_name, u.department_id, u.position, d.name as department_name 
+            SELECT u.id, u.username, u.password, u.full_name, u.department_id, u.position, u.is_admin, d.name as department_name 
             FROM users u
             JOIN departments d ON u.department_id = d.id
             WHERE u.username = @username AND u.password = @password";
@@ -179,7 +164,6 @@ namespace Messenger.Server
                     {
                         if (reader.Read())
                         {
-                            Console.WriteLine($"✅ Успешная аутентификация: {username}");
                             return new User
                             {
                                 Id = reader.GetInt32(0),
@@ -188,13 +172,10 @@ namespace Messenger.Server
                                 FullName = reader.GetString(3),
                                 DepartmentId = reader.GetInt32(4),
                                 Position = reader.IsDBNull(5) ? null : reader.GetString(5),
-                                Department = reader.GetString(6),
+                                IsAdmin = !reader.IsDBNull(6) && reader.GetInt32(6) == 1,  // <-- исправлено
+                                Department = reader.GetString(7),
                                 IsOnline = false
                             };
-                        }
-                        else
-                        {
-                            Console.WriteLine($"❌ Неверный пароль для {username}");
                         }
                     }
                 }
@@ -222,12 +203,12 @@ namespace Messenger.Server
             lock (dbLock)
             {
                 string query = @"
-                    SELECT u.id, u.username, u.full_name, u.department_id, u.position, d.name as department_name, us.is_online, us.last_seen
-                    FROM users u
-                    JOIN departments d ON u.department_id = d.id
-                    LEFT JOIN user_status us ON u.id = us.user_id
-                    WHERE u.id != @currentUserId
-                    ORDER BY us.is_online DESC, u.full_name";
+            SELECT u.id, u.username, u.full_name, u.department_id, u.position, u.is_admin, d.name as department_name, us.is_online, us.last_seen
+            FROM users u
+            JOIN departments d ON u.department_id = d.id
+            LEFT JOIN user_status us ON u.id = us.user_id
+            WHERE u.id != @currentUserId
+            ORDER BY us.is_online DESC, u.full_name";
                 using (var cmd = new SQLiteCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@currentUserId", currentUserId);
@@ -242,9 +223,10 @@ namespace Messenger.Server
                                 FullName = reader.GetString(2),
                                 DepartmentId = reader.GetInt32(3),
                                 Position = reader.IsDBNull(4) ? null : reader.GetString(4),
-                                Department = reader.GetString(5),
-                                IsOnline = !reader.IsDBNull(6) && reader.GetBoolean(6),
-                                LastSeen = reader.IsDBNull(7) ? (DateTime?)null : reader.GetDateTime(7)
+                                IsAdmin = !reader.IsDBNull(5) && reader.GetInt32(5) == 1,  // <-- исправлено
+                                Department = reader.GetString(6),
+                                IsOnline = !reader.IsDBNull(7) && reader.GetBoolean(7),
+                                LastSeen = reader.IsDBNull(8) ? (DateTime?)null : reader.GetDateTime(8)
                             });
                         }
                     }
@@ -284,17 +266,17 @@ namespace Messenger.Server
             lock (dbLock)
             {
                 string query = @"
-            SELECT c.id, c.name, c.type,
-                (SELECT text FROM messages WHERE chat_id = c.id ORDER BY sent_at DESC LIMIT 1) as last_message,
-                (SELECT sent_at FROM messages WHERE chat_id = c.id ORDER BY sent_at DESC LIMIT 1) as last_time,
-                (SELECT COUNT(*) FROM messages m 
-                 WHERE m.chat_id = c.id 
-                   AND m.id > COALESCE((SELECT last_read_message_id FROM user_chat_read WHERE user_id = @uid AND chat_id = c.id),0)
-                   AND m.sender_id != @uid) as unread
-            FROM chats c
-            JOIN chat_participants cp ON c.id = cp.chat_id
-            WHERE cp.user_id = @uid
-            ORDER BY last_time DESC";
+                    SELECT c.id, c.name, c.type,
+                        (SELECT text FROM messages WHERE chat_id = c.id ORDER BY sent_at DESC LIMIT 1) as last_message,
+                        (SELECT sent_at FROM messages WHERE chat_id = c.id ORDER BY sent_at DESC LIMIT 1) as last_time,
+                        (SELECT COUNT(*) FROM messages m 
+                         WHERE m.chat_id = c.id 
+                           AND m.id > COALESCE((SELECT last_read_message_id FROM user_chat_read WHERE user_id = @uid AND chat_id = c.id),0)
+                           AND m.sender_id != @uid) as unread
+                    FROM chats c
+                    JOIN chat_participants cp ON c.id = cp.chat_id
+                    WHERE cp.user_id = @uid
+                    ORDER BY last_time DESC";
                 using (var cmd = new SQLiteCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@uid", userId);
@@ -321,16 +303,16 @@ namespace Messenger.Server
             return chats;
         }
 
-        private List<User> GetChatParticipants(int chatId)
+        public List<User> GetChatParticipants(int chatId)
         {
             var users = new List<User>();
             string query = @"
-                SELECT u.id, u.username, u.full_name, u.department_id, u.position, d.name as department_name, us.is_online, us.last_seen
-                FROM users u
-                JOIN chat_participants cp ON u.id = cp.user_id
-                JOIN departments d ON u.department_id = d.id
-                LEFT JOIN user_status us ON u.id = us.user_id
-                WHERE cp.chat_id = @chatId";
+        SELECT u.id, u.username, u.full_name, u.department_id, u.position, u.is_admin, d.name as department_name, us.is_online, us.last_seen
+        FROM users u
+        JOIN chat_participants cp ON u.id = cp.user_id
+        JOIN departments d ON u.department_id = d.id
+        LEFT JOIN user_status us ON u.id = us.user_id
+        WHERE cp.chat_id = @chatId";
             using (var cmd = new SQLiteCommand(query, connection))
             {
                 cmd.Parameters.AddWithValue("@chatId", chatId);
@@ -345,14 +327,116 @@ namespace Messenger.Server
                             FullName = reader.GetString(2),
                             DepartmentId = reader.GetInt32(3),
                             Position = reader.IsDBNull(4) ? null : reader.GetString(4),
-                            Department = reader.GetString(5),
-                            IsOnline = !reader.IsDBNull(6) && reader.GetBoolean(6),
-                            LastSeen = reader.IsDBNull(7) ? (DateTime?)null : reader.GetDateTime(7)
+                            IsAdmin = !reader.IsDBNull(5) && reader.GetInt32(5) == 1,  // <-- исправлено
+                            Department = reader.GetString(6),
+                            IsOnline = !reader.IsDBNull(7) && reader.GetBoolean(7),
+                            LastSeen = reader.IsDBNull(8) ? (DateTime?)null : reader.GetDateTime(8)
                         });
                     }
                 }
             }
             return users;
+        }
+
+        // Новый метод: создать чаты для всех отделов, если их нет
+        public void CreateDepartmentChatsForAllDepartments()
+        {
+            lock (dbLock)
+            {
+                var depts = GetAllDepartments();
+                foreach (var dept in depts)
+                    EnsureDepartmentChat(dept.Id);
+            }
+        }
+
+        public Chat EnsureDepartmentChat(int departmentId)
+        {
+            lock (dbLock)
+            {
+                // Проверим, есть ли уже чат
+                string check = "SELECT id FROM chats WHERE type='Department' AND department_id = @deptId";
+                using (var cmd = new SQLiteCommand(check, connection))
+                {
+                    cmd.Parameters.AddWithValue("@deptId", departmentId);
+                    var existing = cmd.ExecuteScalar();
+                    if (existing != null)
+                    {
+                        int chatId = Convert.ToInt32(existing);
+                        return new Chat { Id = chatId, Type = ChatType.Department, Participants = GetChatParticipants(chatId) };
+                    }
+                }
+
+                // Создаём чат
+                string insert = "INSERT INTO chats (name, type, department_id, created_by) VALUES (@name, 'Department', @deptId, NULL); SELECT last_insert_rowid();";
+                string deptName = GetDepartmentName(departmentId);
+                int newId;
+                using (var cmd = new SQLiteCommand(insert, connection))
+                {
+                    cmd.Parameters.AddWithValue("@name", deptName);
+                    cmd.Parameters.AddWithValue("@deptId", departmentId);
+                    newId = Convert.ToInt32(cmd.ExecuteScalar());
+                }
+
+                // Добавляем всех пользователей отдела
+                string getUsers = "SELECT id FROM users WHERE department_id = @deptId";
+                var userIds = new List<int>();
+                using (var cmd = new SQLiteCommand(getUsers, connection))
+                {
+                    cmd.Parameters.AddWithValue("@deptId", departmentId);
+                    using (var reader = cmd.ExecuteReader())
+                        while (reader.Read())
+                            userIds.Add(reader.GetInt32(0));
+                }
+
+                string part = "INSERT INTO chat_participants (chat_id, user_id) VALUES (@cid, @uid)";
+                using (var cmd = new SQLiteCommand(part, connection))
+                {
+                    foreach (var uid in userIds)
+                    {
+                        cmd.Parameters.Clear();
+                        cmd.Parameters.AddWithValue("@cid", newId);
+                        cmd.Parameters.AddWithValue("@uid", uid);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                return new Chat { Id = newId, Type = ChatType.Department, Participants = GetChatParticipants(newId) };
+            }
+        }
+
+        private string GetDepartmentName(int departmentId)
+        {
+            using (var cmd = new SQLiteCommand("SELECT name FROM departments WHERE id = @id", connection))
+            {
+                cmd.Parameters.AddWithValue("@id", departmentId);
+                return cmd.ExecuteScalar()?.ToString() ?? "Unknown";
+            }
+        }
+
+        public Chat GetChatById(int chatId)
+        {
+            lock (dbLock)
+            {
+                string query = "SELECT id, name, type, department_id FROM chats WHERE id = @id";
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@id", chatId);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            return new Chat
+                            {
+                                Id = reader.GetInt32(0),
+                                Name = reader.GetString(1),
+                                Type = (ChatType)Enum.Parse(typeof(ChatType), reader.GetString(2)),
+                                DepartmentId = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3)  // <-- исправлено
+                            };
+                        }
+                    }
+                }
+                return null;
+            }
         }
 
         public Chat CreatePrivateChat(int user1Id, int user2Id)
@@ -453,13 +537,13 @@ namespace Messenger.Server
             lock (dbLock)
             {
                 string query = @"
-            SELECT m.id, m.chat_id, m.sender_id, m.text, m.sent_at, m.is_read, 
-                   u.full_name, d.name as department_name
-            FROM messages m
-            JOIN users u ON m.sender_id = u.id
-            JOIN departments d ON u.department_id = d.id
-            WHERE m.chat_id = @cid
-            ORDER BY m.sent_at ASC LIMIT 100";
+                    SELECT m.id, m.chat_id, m.sender_id, m.text, m.sent_at, m.is_read, 
+                           u.full_name, d.name as department_name
+                    FROM messages m
+                    JOIN users u ON m.sender_id = u.id
+                    JOIN departments d ON u.department_id = d.id
+                    WHERE m.chat_id = @cid
+                    ORDER BY m.sent_at ASC LIMIT 100";
                 using (var cmd = new SQLiteCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@cid", chatId);
@@ -476,7 +560,7 @@ namespace Messenger.Server
                                 SentAt = reader.GetDateTime(4),
                                 IsRead = reader.GetBoolean(5),
                                 SenderName = reader.GetString(6),
-                                SenderDepartment = reader.GetString(7) // новое поле
+                                SenderDepartment = reader.GetString(7)
                             });
                         }
                     }
@@ -515,6 +599,86 @@ namespace Messenger.Server
                     cmd.ExecuteNonQuery();
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            Close();
+        }
+
+        public void AddUserToChat(int chatId, int userId)
+        {
+            lock (dbLock)
+            {
+                string check = "SELECT COUNT(*) FROM chat_participants WHERE chat_id = @chatId AND user_id = @userId";
+                using (var cmd = new SQLiteCommand(check, connection))
+                {
+                    cmd.Parameters.AddWithValue("@chatId", chatId);
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    if (Convert.ToInt32(cmd.ExecuteScalar()) > 0)
+                        return;
+                }
+
+                string insert = "INSERT INTO chat_participants (chat_id, user_id) VALUES (@chatId, @userId)";
+                using (var cmd = new SQLiteCommand(insert, connection))
+                {
+                    cmd.Parameters.AddWithValue("@chatId", chatId);
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void RemoveUserFromChat(int chatId, int userId)
+        {
+            lock (dbLock)
+            {
+                string delete = "DELETE FROM chat_participants WHERE chat_id = @chatId AND user_id = @userId";
+                using (var cmd = new SQLiteCommand(delete, connection))
+                {
+                    cmd.Parameters.AddWithValue("@chatId", chatId);
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public List<User> GetUsersNotInChat(int chatId, int currentUserId)
+        {
+            var users = new List<User>();
+            lock (dbLock)
+            {
+                string query = @"
+            SELECT u.id, u.username, u.full_name, u.department_id, u.position, u.is_admin, d.name as department_name, us.is_online, us.last_seen
+            FROM users u
+            JOIN departments d ON u.department_id = d.id
+            LEFT JOIN user_status us ON u.id = us.user_id
+            WHERE u.id NOT IN (SELECT user_id FROM chat_participants WHERE chat_id = @chatId)
+            ORDER BY us.is_online DESC, u.full_name";
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@chatId", chatId);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            users.Add(new User
+                            {
+                                Id = reader.GetInt32(0),
+                                Username = reader.GetString(1),
+                                FullName = reader.GetString(2),
+                                DepartmentId = reader.GetInt32(3),
+                                Position = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                IsAdmin = !reader.IsDBNull(5) && reader.GetInt32(5) == 1,  // <-- исправлено
+                                Department = reader.GetString(6),
+                                IsOnline = !reader.IsDBNull(7) && reader.GetBoolean(7),
+                                LastSeen = reader.IsDBNull(8) ? (DateTime?)null : reader.GetDateTime(8)
+                            });
+                        }
+                    }
+                }
+            }
+            return users;
         }
     }
 }
