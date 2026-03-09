@@ -36,7 +36,6 @@ namespace Messenger.Client
             this.Load += MainForm_Load;
             this.FormClosing += MainForm_FormClosing;
             this.btnNewChat.Click += BtnNewChat_Click;
-            this.btnSettings.Click += BtnSettings_Click;
             this.btnLogout.Click += BtnLogout_Click;
             this.btnSend.Click += BtnSend_Click;
             this.txtMessage.KeyDown += TxtMessage_KeyDown;
@@ -65,12 +64,6 @@ namespace Messenger.Client
             btnNewChat.FlatAppearance.BorderColor = Color.FromArgb(0, 229, 255);
             btnNewChat.ForeColor = Color.FromArgb(0, 229, 255);
             btnNewChat.Text = "➕ Новый чат";
-
-            btnSettings.BackColor = Color.Transparent;
-            btnSettings.FlatStyle = FlatStyle.Flat;
-            btnSettings.FlatAppearance.BorderColor = Color.FromArgb(0, 229, 255);
-            btnSettings.ForeColor = Color.FromArgb(0, 229, 255);
-            btnSettings.Text = "⚙";
 
             btnLogout.BackColor = Color.Transparent;
             btnLogout.FlatStyle = FlatStyle.Flat;
@@ -169,6 +162,30 @@ namespace Messenger.Client
             lblConnectionStatus.Text = "● Подключено к серверу";
             lblConnectionStatus.ForeColor = Color.FromArgb(76, 175, 80);
             lblServerInfo.Text = $"Сервер: {networkClient.ServerIP}:8888";
+
+            // ---- Генерация аватарки с инициалами ----
+            string initials = "?";
+            var parts = currentUser.FullName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 1)
+                initials = parts[0][0].ToString().ToUpper();
+            else if (parts.Length >= 2)
+                initials = (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+
+            Bitmap bmp = new Bitmap(40, 40);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.FromArgb(63, 81, 181));
+                using (Font font = new Font("Segoe UI", 16, FontStyle.Bold))
+                using (StringFormat sf = new StringFormat()
+                {
+                    Alignment = StringAlignment.Center,
+                    LineAlignment = StringAlignment.Center
+                })
+                {
+                    g.DrawString(initials, font, Brushes.White, new Rectangle(0, 0, 40, 40), sf);
+                }
+            }
+            picUserAvatar.Image = bmp;
         }
 
         private void LoadChats()
@@ -243,7 +260,10 @@ namespace Messenger.Client
                         var jsonElemChatCreated = (JsonElement)packet.Data;
                         string jsonChatCreated = jsonElemChatCreated.GetRawText();
                         var newChat = JsonSerializer.Deserialize<Chat>(jsonChatCreated);
-                        chats.Add(newChat);
+                        if (!chats.Any(c => c.Id == newChat.Id))
+                        {
+                            chats.Add(newChat);
+                        }
                         UpdateChatsList();
                         break;
                 }
@@ -305,6 +325,51 @@ namespace Messenger.Client
 
             // Обновляем заголовок с учётом статусов
             UpdateCurrentChatHeader();
+
+            // ---- Генерация аватара для текущего чата (с инициалами) ----
+            if (picChatAvatar.Image != null)
+            {
+                picChatAvatar.Image.Dispose();
+                picChatAvatar.Image = null;
+            }
+
+            int size = 50;
+            Bitmap bmp = new Bitmap(size, size);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                g.Clear(Color.FromArgb(63, 81, 181)); // синий фон
+
+                // Определяем текст (инициалы)
+                string text = "?";
+                if (currentChat.Type == ChatType.Private && currentChat.Participants != null)
+                {
+                    var other = currentChat.Participants.FirstOrDefault(p => p.Id != currentUser.Id);
+                    if (other != null && !string.IsNullOrWhiteSpace(other.FullName))
+                    {
+                        var parts = other.FullName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length == 1)
+                            text = parts[0][0].ToString().ToUpper();
+                        else if (parts.Length >= 2)
+                            text = (parts[0][0].ToString() + parts[parts.Length - 1][0].ToString()).ToUpper();
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(currentChat.Name))
+                {
+                    text = currentChat.Name[0].ToString().ToUpper();
+                }
+
+                // Рисуем инициалы горизонтально
+                using (Font font = new Font("Segoe UI", 20, FontStyle.Bold))
+                {
+                    SizeF textSize = g.MeasureString(text, font);
+                    float x = (size - textSize.Width) / 2;
+                    float y = (size - textSize.Height) / 2;
+                    g.DrawString(text, font, Brushes.White, x, y);
+                }
+            }
+            picChatAvatar.Image = bmp;
         }
 
         private void DisplayMessages()
@@ -439,13 +504,11 @@ namespace Messenger.Client
             using (var form = new NewChatForm(currentUser.Id, currentUser.Department, networkClient))
             {
                 if (form.ShowDialog() == DialogResult.OK)
-                    LoadChats();
+                {
+                    Console.WriteLine("Чат создан, загружаем список...");
+                    LoadChats(); // запрашиваем обновлённый список
+                }
             }
-        }
-
-        private void BtnSettings_Click(object sender, EventArgs e)
-        {
-            MessageBox.Show("Настройки будут позже", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void BtnLogout_Click(object sender, EventArgs e)

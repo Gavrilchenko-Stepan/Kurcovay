@@ -13,7 +13,6 @@ namespace Messenger.Client
         private System.Windows.Forms.Label lblUserDepartment;
         private System.Windows.Forms.Label lblUserStatus;
         private System.Windows.Forms.Button btnNewChat;
-        private System.Windows.Forms.Button btnSettings;
         private System.Windows.Forms.Button btnLogout;
 
         private System.Windows.Forms.Panel panelLeft;
@@ -57,7 +56,6 @@ namespace Messenger.Client
             this.lblUserDepartment = new System.Windows.Forms.Label();
             this.lblUserStatus = new System.Windows.Forms.Label();
             this.btnNewChat = new System.Windows.Forms.Button();
-            this.btnSettings = new System.Windows.Forms.Button();
             this.btnLogout = new System.Windows.Forms.Button();
             this.panelLeft = new System.Windows.Forms.Panel();
             this.panelLeftHeader = new System.Windows.Forms.Panel();
@@ -111,7 +109,6 @@ namespace Messenger.Client
             this.panelTopGradient.Controls.Add(this.lblUserDepartment);
             this.panelTopGradient.Controls.Add(this.lblUserStatus);
             this.panelTopGradient.Controls.Add(this.btnNewChat);
-            this.panelTopGradient.Controls.Add(this.btnSettings);
             this.panelTopGradient.Controls.Add(this.btnLogout);
             this.panelTopGradient.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelTopGradient.Location = new System.Drawing.Point(0, 0);
@@ -168,29 +165,13 @@ namespace Messenger.Client
             this.btnNewChat.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnNewChat.Font = new System.Drawing.Font("Segoe UI", 10F);
             this.btnNewChat.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
-            this.btnNewChat.Location = new System.Drawing.Point(950, 20);
+            this.btnNewChat.Location = new System.Drawing.Point(983, 20);
             this.btnNewChat.Name = "btnNewChat";
             this.btnNewChat.Size = new System.Drawing.Size(120, 30);
             this.btnNewChat.TabIndex = 4;
             this.btnNewChat.Text = "➕ Новый чат";
             this.btnNewChat.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.btnNewChat.UseVisualStyleBackColor = false;
-            // 
-            // btnSettings
-            // 
-            this.btnSettings.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.btnSettings.BackColor = System.Drawing.Color.Transparent;
-            this.btnSettings.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnSettings.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
-            this.btnSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSettings.Font = new System.Drawing.Font("Segoe UI", 14F);
-            this.btnSettings.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
-            this.btnSettings.Location = new System.Drawing.Point(1080, 15);
-            this.btnSettings.Name = "btnSettings";
-            this.btnSettings.Size = new System.Drawing.Size(40, 40);
-            this.btnSettings.TabIndex = 5;
-            this.btnSettings.Text = "⚙";
-            this.btnSettings.UseVisualStyleBackColor = false;
             // 
             // btnLogout
             // 
@@ -265,8 +246,11 @@ namespace Messenger.Client
             this.picSearch.TabStop = false;
             // 
             // lstChats
-            //
-            this.lstChats.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);
+            // 
+            this.lstChats.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.lstChats.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(58)))));
             this.lstChats.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.lstChats.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
             this.lstChats.ForeColor = System.Drawing.Color.White;
@@ -276,7 +260,6 @@ namespace Messenger.Client
             this.lstChats.Name = "lstChats";
             this.lstChats.Size = new System.Drawing.Size(350, 495);
             this.lstChats.TabIndex = 1;
-            this.lstChats.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             this.lstChats.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.LstChats_DrawItem);
             // 
             // panelLeftFooter

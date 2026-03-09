@@ -151,7 +151,7 @@ namespace Messenger.Client
             this.txtUsername.ForeColor = System.Drawing.Color.White;
             this.txtUsername.Location = new System.Drawing.Point(30, 333);
             this.txtUsername.Size = new System.Drawing.Size(360, 20);
-            this.txtUsername.Text = "admin";
+            this.txtUsername.Text = "";
 
             // panelLine2
             this.panelLine2.BackColor = System.Drawing.Color.FromArgb(0, 229, 255);
@@ -172,7 +172,7 @@ namespace Messenger.Client
             this.txtPassword.ForeColor = System.Drawing.Color.White;
             this.txtPassword.Location = new System.Drawing.Point(30, 393);
             this.txtPassword.Size = new System.Drawing.Size(360, 20);
-            this.txtPassword.Text = "admin";
+            this.txtPassword.Text = "";
             this.txtPassword.UseSystemPasswordChar = true;
 
             // panelLine3
