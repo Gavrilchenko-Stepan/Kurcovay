@@ -21,6 +21,13 @@ namespace Messenger.Client
         private Chat currentChat;
         private Dictionary<int, List<Shared.Message>> messages = new Dictionary<int, List<Shared.Message>>();
         private Timer refreshTimer;
+        // Поля для шрифтов
+        private Font boldFont11;
+        private Font normalFont9;
+        private Font smallFont8;
+        private Font iconFont;
+
+        private bool _isUpdatingList = false;
 
         public MainForm()
         {
@@ -28,6 +35,12 @@ namespace Messenger.Client
             typeof(ListBox).InvokeMember("DoubleBuffered",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
             null, lstChats, new object[] { true });
+            // Создаём шрифты один раз
+            boldFont11 = new Font("Segoe UI", 11, FontStyle.Bold);
+            normalFont9 = new Font("Segoe UI", 9);
+            smallFont8 = new Font("Segoe UI", 8);
+            try { iconFont = new Font("Segoe UI Emoji", 16); }
+            catch { iconFont = new Font("Segoe UI", 16); }
             lstChats.DrawMode = DrawMode.OwnerDrawFixed;
             lstChats.DrawItem += LstChats_DrawItem;
             // отписываемся от события, если оно было подписано
@@ -210,6 +223,7 @@ namespace Messenger.Client
                         var jsonElemChats = (JsonElement)packet.Data;
                         string jsonChats = jsonElemChats.GetRawText();
                         chats = JsonSerializer.Deserialize<List<Chat>>(jsonChats);
+
                         // Преобразуем имена приватных чатов
                         foreach (var chat in chats)
                         {
@@ -220,10 +234,22 @@ namespace Messenger.Client
                                     chat.Name = other.FullName;
                             }
                         }
+
                         Console.WriteLine($"Получен список чатов: {chats.Count} чатов");
                         foreach (var c in chats) Console.WriteLine($"  - {c.Name} (Id={c.Id})");
+
                         UpdateChatsList();
                         UpdateTotalUsers();
+
+                        // Если текущий чат был удалён – сбрасываем интерфейс
+                        if (currentChat != null && !chats.Any(c => c.Id == currentChat.Id))
+                        {
+                            currentChat = null;
+                            lblChatName.Text = "Выберите чат";
+                            lblChatInfo.Text = "";
+                            lstMessages.Items.Clear();
+                            btnSend.Enabled = false;
+                        }
                         break;
                     case Shared.CommandType.MessagesList:
                         var jsonElemMsgs = (JsonElement)packet.Data;
@@ -260,11 +286,21 @@ namespace Messenger.Client
                         var jsonElemChatCreated = (JsonElement)packet.Data;
                         string jsonChatCreated = jsonElemChatCreated.GetRawText();
                         var newChat = JsonSerializer.Deserialize<Chat>(jsonChatCreated);
+
+                        // Преобразуем имя для личного чата
+                        if (newChat.Type == ChatType.Private && newChat.Participants != null)
+                        {
+                            var other = newChat.Participants.FirstOrDefault(p => p.Id != currentUser.Id);
+                            if (other != null)
+                                newChat.Name = other.FullName;
+                        }
+
                         if (!chats.Any(c => c.Id == newChat.Id))
                         {
                             chats.Add(newChat);
+                            currentChat = newChat;        // <- устанавливаем как текущий перед обновлением
+                            UpdateChatsList();            // теперь выделит его автоматически
                         }
-                        UpdateChatsList();
                         break;
                 }
             }
@@ -290,12 +326,45 @@ namespace Messenger.Client
 
         private void UpdateChatsList()
         {
+            if (_isUpdatingList) return;
+            _isUpdatingList = true;
+
+            // Сохраняем текущую позицию прокрутки
+            int topIndex = lstChats.TopIndex;
+            int selectedIndex = lstChats.SelectedIndex; // также сохраняем выделение
+
             lstChats.BeginUpdate();
-            lstChats.Items.Clear();
-            var sorted = chats.OrderByDescending(c => c.LastMessageTime).ToList();
-            foreach (var chat in sorted)
-                lstChats.Items.Add(chat);
-            lstChats.EndUpdate();
+            try
+            {
+                lstChats.Items.Clear();
+                var sorted = chats.OrderByDescending(c => c.LastMessageTime).ToList();
+                foreach (var chat in sorted)
+                    lstChats.Items.Add(chat);
+
+                // Восстанавливаем выделение
+                if (currentChat != null)
+                {
+                    for (int i = 0; i < lstChats.Items.Count; i++)
+                    {
+                        if (((Chat)lstChats.Items[i]).Id == currentChat.Id)
+                        {
+                            lstChats.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                // Восстанавливаем позицию прокрутки
+                if (topIndex >= 0 && topIndex < lstChats.Items.Count)
+                    lstChats.TopIndex = topIndex;
+                else if (lstChats.Items.Count > 0)
+                    lstChats.TopIndex = 0; // если индекс невалидный, сбрасываем в начало (или можно оставить как есть)
+            }
+            finally
+            {
+                lstChats.EndUpdate();
+                _isUpdatingList = false;
+            }
         }
 
         private void UpdateTotalUsers()
@@ -309,11 +378,11 @@ namespace Messenger.Client
 
         private void LstChats_SelectedIndexChanged(object sender, EventArgs e)
         {
+            if (_isUpdatingList) return;
+
             if (!(lstChats.SelectedItem is Chat chat)) return;
             currentChat = chat;
-            lblChatName.Text = chat.Name;
 
-            // Остальной код (сброс unread, очистка и т.д.)
             chat.UnreadCount = 0;
             UpdateChatsList();
             btnSend.Enabled = true;
@@ -323,7 +392,6 @@ namespace Messenger.Client
             lstMessages.Items.Clear();
             networkClient.SendPacket(new NetworkPacket { Command = Shared.CommandType.GetMessages, UserId = currentUser.Id, Data = chat.Id });
 
-            // Обновляем заголовок с учётом статусов
             UpdateCurrentChatHeader();
 
             // ---- Генерация аватара для текущего чата (с инициалами) ----
@@ -506,7 +574,6 @@ namespace Messenger.Client
                 if (form.ShowDialog() == DialogResult.OK)
                 {
                     Console.WriteLine("Чат создан, загружаем список...");
-                    LoadChats(); // запрашиваем обновлённый список
                 }
             }
         }
@@ -530,13 +597,45 @@ namespace Messenger.Client
         private void TxtSearchChats_TextChanged(object sender, EventArgs e)
         {
             string search = txtSearchChats.Text.ToLower().Trim();
-            if (string.IsNullOrWhiteSpace(search) || search == "поиск чатов...")
-                UpdateChatsList();
-            else
+
+            // Сохраняем позицию прокрутки
+            int topIndex = lstChats.TopIndex;
+            int selectedIndex = lstChats.SelectedIndex;
+
+            lstChats.BeginUpdate();
+            try
             {
-                var filtered = chats.Where(c => c.Name.ToLower().Contains(search)).ToList();
-                lstChats.Items.Clear();
-                foreach (var c in filtered) lstChats.Items.Add(c);
+                if (string.IsNullOrWhiteSpace(search) || search == "поиск чатов...")
+                {
+                    UpdateChatsList(); // этот метод уже сам восстановит позицию
+                    return;
+                }
+                else
+                {
+                    lstChats.Items.Clear();
+                    var filtered = chats.Where(c => c.Name.ToLower().Contains(search)).ToList();
+                    foreach (var c in filtered)
+                        lstChats.Items.Add(c);
+                }
+            }
+            finally
+            {
+                // Восстанавливаем выделение (если элемент ещё существует)
+                if (currentChat != null)
+                {
+                    for (int i = 0; i < lstChats.Items.Count; i++)
+                    {
+                        if (((Chat)lstChats.Items[i]).Id == currentChat.Id)
+                        {
+                            lstChats.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                // Восстанавливаем прокрутку
+                if (topIndex >= 0 && topIndex < lstChats.Items.Count)
+                    lstChats.TopIndex = topIndex;
+                lstChats.EndUpdate();
             }
         }
         private void TxtSearchChats_Enter(object sender, EventArgs e)
@@ -552,70 +651,59 @@ namespace Messenger.Client
         private void LstChats_DrawItem(object sender, DrawItemEventArgs e)
         {
             if (e.Index < 0 || !(lstChats.Items[e.Index] is Chat chat)) return;
-            e.DrawBackground();
 
-            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            Color backColor = selected ? Color.FromArgb(0, 229, 255, 50) : Color.FromArgb(45, 45, 58);
+            e.DrawBackground();
+            bool selected = (e.State & DrawItemState.Selected) != 0;
+            Color backColor = selected ? Color.FromArgb(80, 80, 100) : Color.FromArgb(45, 45, 58);
+
             using (var brush = new SolidBrush(backColor))
                 e.Graphics.FillRectangle(brush, e.Bounds);
 
-            // Выбираем иконку в зависимости от типа чата
+            // Рисуем иконку (переиспользуем iconFont)
             string icon = chat.Type == ChatType.Private ? "👤" : "👥";
-            using (var iconFont = new Font("Segoe UI Emoji", 16))
-            {
-                e.Graphics.DrawString(icon, iconFont, Brushes.Gray, e.Bounds.X + 10, e.Bounds.Y + 10);
-            }
+            e.Graphics.DrawString(icon, iconFont, Brushes.Gray, e.Bounds.X + 10, e.Bounds.Y + 10);
 
             int x = e.Bounds.X + 50;
-            using (var font = new Font("Segoe UI", 11, FontStyle.Bold))
-                e.Graphics.DrawString(chat.Name, font, Brushes.White, x, e.Bounds.Y + 15);
-
-            if (chat.Type == ChatType.Private && chat.Participants != null)
-            {
-                var other = chat.Participants.FirstOrDefault(p => p.Id != currentUser?.Id);
-                if (other != null)
-                {
-                    string statusText = other.IsOnline ? "● Онлайн" : "● Офлайн";
-                    Color statusColor = other.IsOnline ? Color.FromArgb(76, 175, 80) : Color.Gray;
-                    using (var statusFont = new Font("Segoe UI", 8, FontStyle.Bold))
-                    using (var brush = new SolidBrush(statusColor))
-                    {
-                        var nameSize = e.Graphics.MeasureString(chat.Name, new Font("Segoe UI", 11, FontStyle.Bold));
-                        e.Graphics.DrawString(statusText, statusFont, brush, x + nameSize.Width + 10, e.Bounds.Y + 18);
-                    }
-                }
-            }
+            e.Graphics.DrawString(chat.Name, boldFont11, Brushes.White, x, e.Bounds.Y + 15);
 
             if (!string.IsNullOrEmpty(chat.LastMessage))
             {
                 string last = chat.LastMessage.Length > 30 ? chat.LastMessage.Substring(0, 27) + "..." : chat.LastMessage;
-                using (var font = new Font("Segoe UI", 9))
-                    e.Graphics.DrawString(last, font, Brushes.Gray, x, e.Bounds.Y + 40);
+                e.Graphics.DrawString(last, normalFont9, Brushes.Gray, x, e.Bounds.Y + 40);
             }
 
             if (chat.LastMessageTime > DateTime.MinValue)
             {
                 string tm = chat.LastMessageTime.ToString("HH:mm");
-                using (var font = new Font("Segoe UI", 8))
-                {
-                    var sz = e.Graphics.MeasureString(tm, font);
-                    e.Graphics.DrawString(tm, font, Brushes.Gray, e.Bounds.Right - sz.Width - 20, e.Bounds.Y + 15);
-                }
+                var sz = e.Graphics.MeasureString(tm, smallFont8);
+                e.Graphics.DrawString(tm, smallFont8, Brushes.Gray, e.Bounds.Right - sz.Width - 20, e.Bounds.Y + 15);
             }
 
             if (chat.UnreadCount > 0)
             {
                 string cnt = chat.UnreadCount.ToString();
-                using (var font = new Font("Segoe UI", 8, FontStyle.Bold))
+                var sz = e.Graphics.MeasureString(cnt, smallFont8);
+                int badgeSize = Math.Max(18, (int)sz.Width + 8);
+                Rectangle rect = new Rectangle(e.Bounds.Right - badgeSize - 15, e.Bounds.Y + 35, badgeSize, 18);
+                using (var brush = new SolidBrush(Color.FromArgb(244, 67, 54)))
+                    e.Graphics.FillEllipse(brush, rect);
+                e.Graphics.DrawString(cnt, smallFont8, Brushes.White, rect.X + (rect.Width - sz.Width) / 2, rect.Y + 1);
+            }
+
+            // Статус для личных чатов
+            if (chat.Type == ChatType.Private && chat.Participants != null)
+            {
+                var other = chat.Participants.FirstOrDefault(p => p.Id != currentUser?.Id);
+                if (other != null)
                 {
-                    var sz = e.Graphics.MeasureString(cnt, font);
-                    int badgeSize = Math.Max(18, (int)sz.Width + 8);
-                    Rectangle rect = new Rectangle(e.Bounds.Right - badgeSize - 15, e.Bounds.Y + 35, badgeSize, 18);
-                    using (var brush = new SolidBrush(Color.FromArgb(244, 67, 54)))
-                        e.Graphics.FillEllipse(brush, rect);
-                    e.Graphics.DrawString(cnt, font, Brushes.White, rect.X + (rect.Width - sz.Width) / 2, rect.Y + 1);
+                    string status = other.IsOnline ? "● Онлайн" : "● Офлайн";
+                    Color statusColor = other.IsOnline ? Color.FromArgb(76, 175, 80) : Color.Gray;
+                    var nameWidth = e.Graphics.MeasureString(chat.Name, boldFont11).Width;
+                    using (var brush = new SolidBrush(statusColor))
+                        e.Graphics.DrawString(status, smallFont8, brush, x + nameWidth + 10, e.Bounds.Y + 18);
                 }
             }
+
             e.DrawFocusRectangle();
         }
 
@@ -724,16 +812,27 @@ namespace Messenger.Client
         {
             if (currentChat == null) return;
 
+            string chatName = currentChat.Name;
+            string chatDepartment = "";
+
             if (currentChat.Type == ChatType.Private)
             {
                 var other = currentChat.Participants?.FirstOrDefault(p => p.Id != currentUser.Id);
                 if (other != null)
                 {
+                    // Имя + должность в скобках (если должность указана)
+                    chatName = string.IsNullOrEmpty(other.Position)
+                        ? other.FullName
+                        : $"{other.FullName} ({other.Position})";
+
+                    chatDepartment = other.Department ?? "";
                     string status = other.IsOnline ? "● Онлайн" : "● Офлайн";
                     lblChatInfo.Text = $"Личный чат • {status}";
                 }
                 else
+                {
                     lblChatInfo.Text = "Личный чат";
+                }
             }
             else if (currentChat.Type == ChatType.Group)
             {
@@ -745,6 +844,9 @@ namespace Messenger.Client
                 int onlineCount = currentChat.Participants?.Count(p => p.IsOnline) ?? 0;
                 lblChatInfo.Text = $"Чат • {currentChat.Participants.Count} уч. • {onlineCount} онлайн";
             }
+
+            lblChatName.Text = chatName;
+            lblChatDepartment.Text = chatDepartment;
         }
     }
 }

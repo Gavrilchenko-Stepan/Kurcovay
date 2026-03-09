@@ -38,17 +38,26 @@ namespace Messenger.Client
         private System.Windows.Forms.Label lblConnectionStatus;
         private System.Windows.Forms.Label lblServerInfo;
 
+        // Новый label для отдела в заголовке чата
+        private System.Windows.Forms.Label lblChatDepartment;
+
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
             {
                 components.Dispose();
+                // Освобождение шрифтов
+                boldFont11?.Dispose();
+                normalFont9?.Dispose();
+                smallFont8?.Dispose();
+                iconFont?.Dispose();
             }
             base.Dispose(disposing);
         }
 
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.panelTop = new System.Windows.Forms.Panel();
             this.panelTopGradient = new System.Windows.Forms.Panel();
             this.picUserAvatar = new System.Windows.Forms.PictureBox();
@@ -69,6 +78,7 @@ namespace Messenger.Client
             this.panelChatHeader = new System.Windows.Forms.Panel();
             this.picChatAvatar = new System.Windows.Forms.PictureBox();
             this.lblChatName = new System.Windows.Forms.Label();
+            this.lblChatDepartment = new System.Windows.Forms.Label();
             this.lblChatInfo = new System.Windows.Forms.Label();
             this.lstMessages = new System.Windows.Forms.ListBox();
             this.panelMessageInput = new System.Windows.Forms.Panel();
@@ -239,6 +249,8 @@ namespace Messenger.Client
             // picSearch
             // 
             this.picSearch.BackColor = System.Drawing.Color.Transparent;
+            this.picSearch.ErrorImage = ((System.Drawing.Image)(resources.GetObject("picSearch.ErrorImage")));
+            this.picSearch.Image = ((System.Drawing.Image)(resources.GetObject("picSearch.Image")));
             this.picSearch.Location = new System.Drawing.Point(315, 43);
             this.picSearch.Name = "picSearch";
             this.picSearch.Size = new System.Drawing.Size(20, 20);
@@ -301,17 +313,18 @@ namespace Messenger.Client
             this.panelChatHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.panelChatHeader.Controls.Add(this.picChatAvatar);
             this.panelChatHeader.Controls.Add(this.lblChatName);
+            this.panelChatHeader.Controls.Add(this.lblChatDepartment);
             this.panelChatHeader.Controls.Add(this.lblChatInfo);
             this.panelChatHeader.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelChatHeader.Location = new System.Drawing.Point(10, 10);
             this.panelChatHeader.Name = "panelChatHeader";
-            this.panelChatHeader.Size = new System.Drawing.Size(830, 70);
+            this.panelChatHeader.Size = new System.Drawing.Size(830, 100);
             this.panelChatHeader.TabIndex = 0;
             // 
             // picChatAvatar
             // 
             this.picChatAvatar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(229)))), ((int)(((byte)(255)))));
-            this.picChatAvatar.Location = new System.Drawing.Point(15, 10);
+            this.picChatAvatar.Location = new System.Drawing.Point(15, 15);
             this.picChatAvatar.Name = "picChatAvatar";
             this.picChatAvatar.Size = new System.Drawing.Size(50, 50);
             this.picChatAvatar.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
@@ -328,11 +341,20 @@ namespace Messenger.Client
             this.lblChatName.TabIndex = 1;
             this.lblChatName.Text = "Выберите чат";
             // 
+            // lblChatDepartment
+            // 
+            this.lblChatDepartment.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblChatDepartment.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(200)))));
+            this.lblChatDepartment.Location = new System.Drawing.Point(75, 45);
+            this.lblChatDepartment.Name = "lblChatDepartment";
+            this.lblChatDepartment.Size = new System.Drawing.Size(400, 20);
+            this.lblChatDepartment.TabIndex = 3;
+            // 
             // lblChatInfo
             // 
             this.lblChatInfo.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lblChatInfo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(200)))));
-            this.lblChatInfo.Location = new System.Drawing.Point(75, 40);
+            this.lblChatInfo.Location = new System.Drawing.Point(75, 70);
             this.lblChatInfo.Name = "lblChatInfo";
             this.lblChatInfo.Size = new System.Drawing.Size(400, 20);
             this.lblChatInfo.TabIndex = 2;
@@ -348,9 +370,9 @@ namespace Messenger.Client
             this.lstMessages.ForeColor = System.Drawing.Color.White;
             this.lstMessages.IntegralHeight = false;
             this.lstMessages.ItemHeight = 80;
-            this.lstMessages.Location = new System.Drawing.Point(10, 90);
+            this.lstMessages.Location = new System.Drawing.Point(10, 120);
             this.lstMessages.Name = "lstMessages";
-            this.lstMessages.Size = new System.Drawing.Size(830, 435);
+            this.lstMessages.Size = new System.Drawing.Size(830, 405);
             this.lstMessages.TabIndex = 1;
             // 
             // panelMessageInput
