@@ -601,6 +601,44 @@ namespace Messenger.Server
             }
         }
 
+        public Message GetMessageById(int messageId)
+        {
+            lock (dbLock)
+            {
+                string query = "SELECT id, chat_id, sender_id FROM messages WHERE id = @id";
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@id", messageId);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            return new Message
+                            {
+                                Id = reader.GetInt32(0),
+                                ChatId = reader.GetInt32(1),
+                                SenderId = reader.GetInt32(2)
+                            };
+                        }
+                    }
+                }
+                return null;
+            }
+        }
+
+        public void DeleteMessage(int messageId)
+        {
+            lock (dbLock)
+            {
+                string delete = "DELETE FROM messages WHERE id = @id";
+                using (var cmd = new SQLiteCommand(delete, connection))
+                {
+                    cmd.Parameters.AddWithValue("@id", messageId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public void Dispose()
         {
             Close();

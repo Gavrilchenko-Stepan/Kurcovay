@@ -43,6 +43,8 @@ namespace Messenger.Client
             lstChats.DrawMode = DrawMode.OwnerDrawFixed;
             lstChats.DrawItem += LstChats_DrawItem;
             lstMessages.DrawItem += LstMessages_DrawItem;
+            lstMessages.KeyDown += LstMessages_KeyDown; // добавлено
+
             ApplyFuturisticStyle();
             this.Load += MainForm_Load;
             this.FormClosing += MainForm_FormClosing;
@@ -56,6 +58,7 @@ namespace Messenger.Client
             this.txtSearchChats.Leave += TxtSearchChats_Leave;
         }
 
+        // ========== Стилизация ==========
         private void ApplyFuturisticStyle()
         {
             this.BackColor = Color.FromArgb(30, 30, 46);
@@ -117,6 +120,7 @@ namespace Messenger.Client
             lblServerInfo.ForeColor = Color.FromArgb(180, 180, 200);
         }
 
+        // ========== Загрузка формы ==========
         private void MainForm_Load(object sender, EventArgs e)
         {
             this.Hide();
@@ -193,6 +197,7 @@ namespace Messenger.Client
             picUserAvatar.Image = bmp;
         }
 
+        // ========== Сетевые методы ==========
         private void LoadChats()
         {
             if (networkClient?.IsConnected == true)
@@ -314,6 +319,11 @@ namespace Messenger.Client
                             UpdateChatsList();
                         }
                         break;
+
+                    case Shared.CommandType.MessageDeleted:   // новая обработка
+                        int deletedId = ((JsonElement)packet.Data).GetInt32();
+                        HandleMessageDeleted(deletedId);
+                        break;
                 }
             }
             catch (Exception ex)
@@ -336,6 +346,7 @@ namespace Messenger.Client
             MessageBox.Show("Соединение с сервером потеряно", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
+        // ========== Обновление списка чатов ==========
         private void UpdateChatsList()
         {
             if (_isUpdatingList) return;
@@ -445,6 +456,7 @@ namespace Messenger.Client
             picChatAvatar.Image = bmp;
         }
 
+        // ========== Отображение сообщений ==========
         private void DisplayMessages()
         {
             lstMessages.Items.Clear();
@@ -538,6 +550,7 @@ namespace Messenger.Client
             }
         }
 
+        // ========== Отправка сообщения ==========
         private void SendMessage()
         {
             if (string.IsNullOrWhiteSpace(txtMessage.Text) || currentChat == null) return;
@@ -567,6 +580,7 @@ namespace Messenger.Client
             if (e.KeyCode == Keys.Enter && !e.Control) { SendMessage(); e.SuppressKeyPress = true; }
         }
 
+        // ========== Создание нового чата ==========
         private void BtnNewChat_Click(object sender, EventArgs e)
         {
             using (var form = new NewChatForm(currentUser.Id, currentUser.Department, networkClient, currentUser.IsAdmin))
@@ -578,6 +592,7 @@ namespace Messenger.Client
             }
         }
 
+        // ========== Выход ==========
         private void BtnLogout_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show("Выйти из системы?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
@@ -594,6 +609,7 @@ namespace Messenger.Client
             }
         }
 
+        // ========== Поиск чатов ==========
         private void TxtSearchChats_TextChanged(object sender, EventArgs e)
         {
             string search = txtSearchChats.Text.ToLower().Trim();
@@ -645,6 +661,7 @@ namespace Messenger.Client
             if (string.IsNullOrWhiteSpace(txtSearchChats.Text)) { txtSearchChats.Text = "Поиск чатов..."; txtSearchChats.ForeColor = Color.Gray; }
         }
 
+        // ========== Отрисовка списка чатов ==========
         private void LstChats_DrawItem(object sender, DrawItemEventArgs e)
         {
             if (e.Index < 0 || !(lstChats.Items[e.Index] is Chat chat)) return;
@@ -702,26 +719,30 @@ namespace Messenger.Client
             e.DrawFocusRectangle();
         }
 
+        // ========== Отрисовка сообщений (убрано выделение) ==========
         private void LstMessages_DrawItem(object sender, DrawItemEventArgs e)
         {
             if (e.Index < 0) return;
 
+            // Заливаем фон всегда одним цветом, игнорируя выделение
+            using (var backBrush = new SolidBrush(Color.FromArgb(30, 30, 46)))
+            {
+                e.Graphics.FillRectangle(backBrush, e.Bounds);
+            }
+
+            // Разделитель даты
             if (lstMessages.Items[e.Index] is string dateStr)
             {
-                e.DrawBackground();
                 using (var font = new Font("Segoe UI", 9, FontStyle.Bold))
                 using (var brush = new SolidBrush(Color.FromArgb(180, 180, 200)))
                 {
                     var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
                     e.Graphics.DrawString(dateStr, font, brush, e.Bounds, sf);
                 }
-                e.DrawFocusRectangle();
                 return;
             }
 
             if (!(lstMessages.Items[e.Index] is Shared.Message msg)) return;
-
-            e.DrawBackground();
 
             bool isMy = msg.SenderId == currentUser.Id;
             int maxWidth = 400;
@@ -764,7 +785,7 @@ namespace Messenger.Client
                 e.Graphics.DrawString(tm, font, brush, x + maxWidth - sz.Width - 10, y + 45);
             }
 
-            e.DrawFocusRectangle();
+            // e.DrawFocusRectangle();  // <-- убрано, чтобы не рисовать фокус
         }
 
         private GraphicsPath GetRoundedRect(Rectangle rect, int radius)
@@ -784,6 +805,7 @@ namespace Messenger.Client
             networkClient.SendPacket(new NetworkPacket { Command = Shared.CommandType.MessagesRead, UserId = currentUser.Id, Data = data });
         }
 
+        // ========== Заголовок чата ==========
         private void UpdateCurrentChatHeader()
         {
             if (currentChat == null) return;
@@ -826,6 +848,7 @@ namespace Messenger.Client
             lblChatDepartment.Text = chatDepartment;
         }
 
+        // ========== Управление участниками ==========
         private void BtnManageParticipants_Click(object sender, EventArgs e)
         {
             if (currentChat?.Type == ChatType.Department || currentChat?.Type == ChatType.Group)
@@ -833,6 +856,52 @@ namespace Messenger.Client
                 using (var form = new ManageParticipantsForm(currentChat.Id, currentUser.Id, networkClient))
                 {
                     form.ShowDialog();
+                }
+            }
+        }
+
+        // ========== Удаление сообщения по клавише Delete ==========
+        private void LstMessages_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Delete && lstMessages.SelectedItem != null)
+            {
+                if (lstMessages.SelectedItem is Shared.Message msg)
+                {
+                    if (msg.SenderId == currentUser.Id || currentUser.IsAdmin)
+                    {
+                        var result = MessageBox.Show("Удалить сообщение?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        if (result == DialogResult.Yes)
+                        {
+                            networkClient.SendPacket(new NetworkPacket
+                            {
+                                Command = Shared.CommandType.DeleteMessage,
+                                Data = msg.Id
+                            });
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Вы можете удалять только свои сообщения.", "Доступ запрещён", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }
+                e.Handled = true;
+            }
+        }
+
+        private void HandleMessageDeleted(int messageId)
+        {
+            foreach (var kv in messages)
+            {
+                var msgList = kv.Value;
+                var msg = msgList.FirstOrDefault(m => m.Id == messageId);
+                if (msg != null)
+                {
+                    msgList.Remove(msg);
+                    if (kv.Key == currentChat?.Id)
+                    {
+                        DisplayMessages(); // обновить отображение
+                    }
+                    break;
                 }
             }
         }

@@ -36,6 +36,9 @@ namespace Messenger.Shared
 
         ChatUpdated,
         ChatInfo,
-        GetChatInfo
+        GetChatInfo,
+
+        DeleteMessage,
+        MessageDeleted
     }
 }

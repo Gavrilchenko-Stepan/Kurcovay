@@ -92,6 +92,9 @@ namespace Messenger.Server
                 case CommandType.GetChatInfo:
                     HandleGetChatInfo(packet);
                     break;
+                case CommandType.DeleteMessage:
+                    HandleDeleteMessage(packet);
+                    break;
             }
         }
 
@@ -362,6 +365,24 @@ namespace Messenger.Server
             {
                 chat.Participants = db.GetChatParticipants(chatId);
                 SendPacket(new NetworkPacket { Command = CommandType.ChatInfo, Data = chat });
+            }
+        }
+
+        private void HandleDeleteMessage(NetworkPacket packet)
+        {
+            if (User == null) return;
+            var jsonElement = (JsonElement)packet.Data;
+            int messageId = jsonElement.GetInt32();
+
+            var message = db.GetMessageById(messageId);
+            if (message == null) return;
+
+            // Удалить может отправитель или администратор
+            if (message.SenderId == User.Id || User.IsAdmin)
+            {
+                db.DeleteMessage(messageId);
+                server.BroadcastToChat(message.ChatId, new NetworkPacket { Command = CommandType.MessageDeleted, Data = messageId }, -1);
+                server.Log($"Сообщение {messageId} удалено пользователем {User.FullName}");
             }
         }
     }
