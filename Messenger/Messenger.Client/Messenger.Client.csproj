@@ -79,6 +79,18 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AdminPanelForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AdminPanelForm.Designer.cs">
+      <DependentUpon>AdminPanelForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="EditUserForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="EditUserForm.Designer.cs">
+      <DependentUpon>EditUserForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>
     </Compile>

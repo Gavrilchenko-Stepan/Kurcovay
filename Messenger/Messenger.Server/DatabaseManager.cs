@@ -1,11 +1,12 @@
-﻿using System;
+﻿using Messenger.Shared;
+using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using Messenger.Shared;
 
 namespace Messenger.Server
 {
@@ -29,10 +30,37 @@ namespace Messenger.Server
 
         public void InitializeDatabase()
         {
-            connection = new SQLiteConnection(connectionString);
-            connection.Open();
-            CreateTables();
-            EnsureFirstUser();
+            int maxRetries = 5;
+            int retryDelayMs = 500;
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
+            {
+                try
+                {
+                    connection = new SQLiteConnection(connectionString);
+                    connection.Open();
+
+                    // Включаем WAL-режим для уменьшения блокировок
+                    using (var cmd = new SQLiteCommand("PRAGMA journal_mode=WAL;", connection))
+                    {
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    CreateTables();
+                    EnsureFirstUser();
+                    return; // Успех – выходим
+                }
+                catch (SQLiteException ex) when (ex.Message.Contains("locked"))
+                {
+                    if (attempt == maxRetries)
+                    {
+                        Console.WriteLine($"Не удалось открыть базу данных после {maxRetries} попыток.");
+                        throw;
+                    }
+                    Console.WriteLine($"База данных заблокирована, попытка {attempt} из {maxRetries}. Повтор через {retryDelayMs} мс...");
+                    Thread.Sleep(retryDelayMs);
+                }
+            }
         }
 
         private void CreateTables()
@@ -305,37 +333,40 @@ namespace Messenger.Server
 
         public List<User> GetChatParticipants(int chatId)
         {
-            var users = new List<User>();
-            string query = @"
-        SELECT u.id, u.username, u.full_name, u.department_id, u.position, u.is_admin, d.name as department_name, us.is_online, us.last_seen
-        FROM users u
-        JOIN chat_participants cp ON u.id = cp.user_id
-        JOIN departments d ON u.department_id = d.id
-        LEFT JOIN user_status us ON u.id = us.user_id
-        WHERE cp.chat_id = @chatId";
-            using (var cmd = new SQLiteCommand(query, connection))
+            lock (dbLock)
             {
-                cmd.Parameters.AddWithValue("@chatId", chatId);
-                using (var reader = cmd.ExecuteReader())
+                var users = new List<User>();
+                string query = @"
+            SELECT u.id, u.username, u.full_name, u.department_id, u.position, u.is_admin, d.name as department_name, us.is_online, us.last_seen
+            FROM users u
+            JOIN chat_participants cp ON u.id = cp.user_id
+            JOIN departments d ON u.department_id = d.id
+            LEFT JOIN user_status us ON u.id = us.user_id
+            WHERE cp.chat_id = @chatId";
+                using (var cmd = new SQLiteCommand(query, connection))
                 {
-                    while (reader.Read())
+                    cmd.Parameters.AddWithValue("@chatId", chatId);
+                    using (var reader = cmd.ExecuteReader())
                     {
-                        users.Add(new User
+                        while (reader.Read())
                         {
-                            Id = reader.GetInt32(0),
-                            Username = reader.GetString(1),
-                            FullName = reader.GetString(2),
-                            DepartmentId = reader.GetInt32(3),
-                            Position = reader.IsDBNull(4) ? null : reader.GetString(4),
-                            IsAdmin = !reader.IsDBNull(5) && reader.GetInt32(5) == 1,  // <-- исправлено
-                            Department = reader.GetString(6),
-                            IsOnline = !reader.IsDBNull(7) && reader.GetBoolean(7),
-                            LastSeen = reader.IsDBNull(8) ? (DateTime?)null : reader.GetDateTime(8)
-                        });
+                            users.Add(new User
+                            {
+                                Id = reader.GetInt32(0),
+                                Username = reader.GetString(1),
+                                FullName = reader.GetString(2),
+                                DepartmentId = reader.GetInt32(3),
+                                Position = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                IsAdmin = !reader.IsDBNull(5) && reader.GetInt32(5) == 1,
+                                Department = reader.GetString(6),
+                                IsOnline = !reader.IsDBNull(7) && reader.GetBoolean(7),
+                                LastSeen = reader.IsDBNull(8) ? (DateTime?)null : reader.GetDateTime(8)
+                            });
+                        }
                     }
                 }
+                return users;
             }
-            return users;
         }
 
         // Новый метод: создать чаты для всех отделов, если их нет
@@ -406,10 +437,13 @@ namespace Messenger.Server
 
         private string GetDepartmentName(int departmentId)
         {
-            using (var cmd = new SQLiteCommand("SELECT name FROM departments WHERE id = @id", connection))
+            lock (dbLock)
             {
-                cmd.Parameters.AddWithValue("@id", departmentId);
-                return cmd.ExecuteScalar()?.ToString() ?? "Unknown";
+                using (var cmd = new SQLiteCommand("SELECT name FROM departments WHERE id = @id", connection))
+                {
+                    cmd.Parameters.AddWithValue("@id", departmentId);
+                    return cmd.ExecuteScalar()?.ToString() ?? "Unknown";
+                }
             }
         }
 
@@ -717,6 +751,95 @@ namespace Messenger.Server
                 }
             }
             return users;
+        }
+
+        public List<User> GetAllUsers()
+        {
+            var users = new List<User>();
+            lock (dbLock)
+            {
+                string query = @"
+            SELECT u.id, u.username, u.password, u.full_name, u.department_id, u.position, u.is_admin, d.name as department_name, us.is_online, us.last_seen
+            FROM users u
+            JOIN departments d ON u.department_id = d.id
+            LEFT JOIN user_status us ON u.id = us.user_id
+            ORDER BY d.name, u.full_name";
+                using (var cmd = new SQLiteCommand(query, connection))
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        users.Add(new User
+                        {
+                            Id = reader.GetInt32(0),
+                            Username = reader.GetString(1),
+                            Password = reader.GetString(2),
+                            FullName = reader.GetString(3),
+                            DepartmentId = reader.GetInt32(4),
+                            Position = reader.IsDBNull(5) ? null : reader.GetString(5),
+                            IsAdmin = !reader.IsDBNull(6) && reader.GetInt32(6) == 1,
+                            Department = reader.GetString(7),
+                            IsOnline = !reader.IsDBNull(8) && reader.GetBoolean(8),
+                            LastSeen = reader.IsDBNull(9) ? (DateTime?)null : reader.GetDateTime(9)
+                        });
+                    }
+                }
+            }
+            return users;
+        }
+
+        public void AddUser(User user, string password)
+        {
+            lock (dbLock)
+            {
+                string query = "INSERT INTO users (username, password, full_name, department_id, position, is_admin) VALUES (@u, @p, @f, @d, @pos, @admin)";
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@u", user.Username);
+                    cmd.Parameters.AddWithValue("@p", password);
+                    cmd.Parameters.AddWithValue("@f", user.FullName);
+                    cmd.Parameters.AddWithValue("@d", user.DepartmentId);
+                    cmd.Parameters.AddWithValue("@pos", user.Position ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@admin", user.IsAdmin ? 1 : 0);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void UpdateUser(User user, string newPassword = null)
+        {
+            lock (dbLock)
+            {
+                string query = "UPDATE users SET username = @u, full_name = @f, department_id = @d, position = @pos, is_admin = @admin";
+                if (!string.IsNullOrEmpty(newPassword))
+                    query += ", password = @p";
+                query += " WHERE id = @id";
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@u", user.Username);
+                    cmd.Parameters.AddWithValue("@f", user.FullName);
+                    cmd.Parameters.AddWithValue("@d", user.DepartmentId);
+                    cmd.Parameters.AddWithValue("@pos", user.Position ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@admin", user.IsAdmin ? 1 : 0);
+                    if (!string.IsNullOrEmpty(newPassword))
+                        cmd.Parameters.AddWithValue("@p", newPassword);
+                    cmd.Parameters.AddWithValue("@id", user.Id);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void DeleteUser(int userId)
+        {
+            lock (dbLock)
+            {
+                string query = "DELETE FROM users WHERE id = @id";
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@id", userId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
         }
     }
 }

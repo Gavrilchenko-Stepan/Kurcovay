@@ -32,13 +32,6 @@ namespace Messenger.Server
             var server = new MessengerServer();
             server.Start();
 
-            // Создаём чаты для всех отделов (если ещё не созданы)
-            using (DatabaseManager db = new DatabaseManager())
-            {
-                db.InitializeDatabase();
-                db.CreateDepartmentChatsForAllDepartments();
-            }
-
             Console.WriteLine("\nНажмите 'Q' для остановки сервера...");
             while (Console.ReadKey().Key != ConsoleKey.Q) { }
 

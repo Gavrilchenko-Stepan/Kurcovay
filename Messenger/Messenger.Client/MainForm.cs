@@ -43,7 +43,7 @@ namespace Messenger.Client
             lstChats.DrawMode = DrawMode.OwnerDrawFixed;
             lstChats.DrawItem += LstChats_DrawItem;
             lstMessages.DrawItem += LstMessages_DrawItem;
-            lstMessages.KeyDown += LstMessages_KeyDown; // добавлено
+            lstMessages.KeyDown += LstMessages_KeyDown;
 
             ApplyFuturisticStyle();
             this.Load += MainForm_Load;
@@ -176,6 +176,9 @@ namespace Messenger.Client
             lblConnectionStatus.Text = "● Подключено к серверу";
             lblConnectionStatus.ForeColor = Color.FromArgb(76, 175, 80);
             lblServerInfo.Text = $"Сервер: {networkClient.ServerIP}:8888";
+
+            // Показываем кнопку админ-панели только администратору
+            btnAdminPanel.Visible = currentUser.IsAdmin;
 
             string initials = "?";
             var parts = currentUser.FullName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -320,7 +323,7 @@ namespace Messenger.Client
                         }
                         break;
 
-                    case Shared.CommandType.MessageDeleted:   // новая обработка
+                    case Shared.CommandType.MessageDeleted:
                         int deletedId = ((JsonElement)packet.Data).GetInt32();
                         HandleMessageDeleted(deletedId);
                         break;
@@ -592,6 +595,15 @@ namespace Messenger.Client
             }
         }
 
+        // ========== Админ-панель ==========
+        private void BtnAdminPanel_Click(object sender, EventArgs e)
+        {
+            using (var form = new AdminPanelForm(networkClient, currentUser.Id))
+            {
+                form.ShowDialog();
+            }
+        }
+
         // ========== Выход ==========
         private void BtnLogout_Click(object sender, EventArgs e)
         {
@@ -719,18 +731,16 @@ namespace Messenger.Client
             e.DrawFocusRectangle();
         }
 
-        // ========== Отрисовка сообщений (убрано выделение) ==========
+        // ========== Отрисовка сообщений ==========
         private void LstMessages_DrawItem(object sender, DrawItemEventArgs e)
         {
             if (e.Index < 0) return;
 
-            // Заливаем фон всегда одним цветом, игнорируя выделение
             using (var backBrush = new SolidBrush(Color.FromArgb(30, 30, 46)))
             {
                 e.Graphics.FillRectangle(backBrush, e.Bounds);
             }
 
-            // Разделитель даты
             if (lstMessages.Items[e.Index] is string dateStr)
             {
                 using (var font = new Font("Segoe UI", 9, FontStyle.Bold))
@@ -784,8 +794,6 @@ namespace Messenger.Client
                 var sz = e.Graphics.MeasureString(tm, font);
                 e.Graphics.DrawString(tm, font, brush, x + maxWidth - sz.Width - 10, y + 45);
             }
-
-            // e.DrawFocusRectangle();  // <-- убрано, чтобы не рисовать фокус
         }
 
         private GraphicsPath GetRoundedRect(Rectangle rect, int radius)
@@ -805,7 +813,6 @@ namespace Messenger.Client
             networkClient.SendPacket(new NetworkPacket { Command = Shared.CommandType.MessagesRead, UserId = currentUser.Id, Data = data });
         }
 
-        // ========== Заголовок чата ==========
         private void UpdateCurrentChatHeader()
         {
             if (currentChat == null) return;
@@ -848,7 +855,6 @@ namespace Messenger.Client
             lblChatDepartment.Text = chatDepartment;
         }
 
-        // ========== Управление участниками ==========
         private void BtnManageParticipants_Click(object sender, EventArgs e)
         {
             if (currentChat?.Type == ChatType.Department || currentChat?.Type == ChatType.Group)
@@ -860,7 +866,6 @@ namespace Messenger.Client
             }
         }
 
-        // ========== Удаление сообщения по клавише Delete ==========
         private void LstMessages_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Delete && lstMessages.SelectedItem != null)
@@ -899,7 +904,7 @@ namespace Messenger.Client
                     msgList.Remove(msg);
                     if (kv.Key == currentChat?.Id)
                     {
-                        DisplayMessages(); // обновить отображение
+                        DisplayMessages();
                     }
                     break;
                 }

@@ -95,6 +95,18 @@ namespace Messenger.Server
                 case CommandType.DeleteMessage:
                     HandleDeleteMessage(packet);
                     break;
+                case CommandType.GetAllUsers:
+                    HandleGetAllUsers(packet);
+                    break;
+                case CommandType.AddUser:
+                    HandleAddUser(packet);
+                    break;
+                case CommandType.UpdateUser:
+                    HandleUpdateUser(packet);
+                    break;
+                case CommandType.DeleteUser:
+                    HandleDeleteUser(packet);
+                    break;
             }
         }
 
@@ -115,7 +127,7 @@ namespace Messenger.Server
                 server.Log($"Login attempt: {username}");
 
                 User = db.AuthenticateUser(username, password);
-                server.Log($"AuthenticateUser returned: {(User != null ? "user" : "null")}");
+                server.Log($"AuthenticateUser returned: {(User != null ? $"IsAdmin={User.IsAdmin}" : "null")} for user {username}");
 
                 if (User != null)
                 {
@@ -384,6 +396,56 @@ namespace Messenger.Server
                 server.BroadcastToChat(message.ChatId, new NetworkPacket { Command = CommandType.MessageDeleted, Data = messageId }, -1);
                 server.Log($"Сообщение {messageId} удалено пользователем {User.FullName}");
             }
+        }
+
+        private void HandleGetAllUsers(NetworkPacket packet)
+        {
+            if (User == null || !User.IsAdmin) return;
+            var users = db.GetAllUsers();
+            SendPacket(new NetworkPacket { Command = CommandType.AllUsersList, Data = users });
+        }
+
+        private void HandleAddUser(NetworkPacket packet)
+        {
+            if (User == null || !User.IsAdmin) return;
+            var jsonElement = (JsonElement)packet.Data;
+            string json = jsonElement.GetRawText();
+            var data = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+            var user = JsonSerializer.Deserialize<User>(data["user"].ToString());
+            string password = data["password"].ToString();
+            db.AddUser(user, password);
+            SendPacket(new NetworkPacket { Command = CommandType.AllUsersList, Data = db.GetAllUsers() });
+        }
+
+        private void HandleUpdateUser(NetworkPacket packet)
+        {
+            if (User == null || !User.IsAdmin) return;
+            var jsonElement = (JsonElement)packet.Data;
+            string json = jsonElement.GetRawText();
+            var data = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+            var user = JsonSerializer.Deserialize<User>(data["user"].ToString());
+            string newPassword = data.ContainsKey("password") ? data["password"]?.ToString() : null;
+            db.UpdateUser(user, newPassword);
+            SendPacket(new NetworkPacket { Command = CommandType.AllUsersList, Data = db.GetAllUsers() });
+        }
+
+        private void HandleDeleteUser(NetworkPacket packet)
+        {
+            if (User == null || !User.IsAdmin) return;
+            int userId = ((JsonElement)packet.Data).GetInt32();
+
+            // Проверка на последнего администратора
+            var allUsers = db.GetAllUsers();
+            if (allUsers.Any(u => u.Id == userId && u.IsAdmin))
+            {
+                if (allUsers.Count(u => u.IsAdmin) == 1)
+                {
+                    SendPacket(new NetworkPacket { Command = CommandType.Error, Data = "Нельзя удалить последнего администратора" });
+                    return;
+                }
+            }
+            db.DeleteUser(userId);
+            SendPacket(new NetworkPacket { Command = CommandType.AllUsersList, Data = db.GetAllUsers() });
         }
     }
 }

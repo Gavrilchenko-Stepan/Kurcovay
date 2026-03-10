@@ -28,6 +28,7 @@ namespace Messenger.Server
             try
             {
                 db.InitializeDatabase();
+                db.CreateDepartmentChatsForAllDepartments();
 
                 int port = 8888;
                 tcpListener = new TcpListener(IPAddress.Any, port);

@@ -34,6 +34,11 @@ namespace Messenger.Client
             this.btnRemove.Click += BtnRemove_Click;
             this.btnClose.Click += BtnClose_Click;
 
+            // Настройка прокрутки для списка участников
+            lstParticipants.IntegralHeight = false;
+            lstParticipants.ScrollAlwaysVisible = true;
+            lstParticipants.HorizontalScrollbar = true;
+
             LoadData();
         }
 
@@ -75,11 +80,10 @@ namespace Messenger.Client
                         var jsonElem2 = (JsonElement)packet.Data;
                         string json2 = jsonElem2.GetRawText();
                         allUsers = JsonSerializer.Deserialize<List<User>>(json2);
-                        UpdateAvailableUsers();
+                        UpdateAvailableTree();
                         break;
 
                     case Shared.CommandType.ChatUpdated:
-                        // После изменений обновляем данные
                         LoadData();
                         break;
                 }
@@ -96,62 +100,91 @@ namespace Messenger.Client
             if (participants != null)
             {
                 foreach (var user in participants.OrderBy(u => u.FullName))
-                    lstParticipants.Items.Add(user.FullName);
+                {
+                    string display = string.IsNullOrEmpty(user.Position)
+                        ? user.FullName
+                        : $"{user.FullName} ({user.Position})";
+                    lstParticipants.Items.Add(display);
+                    // можно хранить объект через Tag, но ListBox неудобен; оставим пока как строки
+                    // для удаления потом будем искать по имени, но это не очень надёжно. Лучше хранить объект.
+                    // Временно так; позже можно добавить свойство для хранения User.
+                }
             }
         }
 
-        private void UpdateAvailableUsers()
+        private void UpdateAvailableTree()
         {
-            lstAvailable.Items.Clear();
+            tvAvailable.Nodes.Clear();
             if (allUsers == null || participants == null) return;
 
+            // Исключаем уже состоящих в чате
             var available = allUsers.Where(u => !participants.Any(p => p.Id == u.Id)).ToList();
-            foreach (var user in available.OrderBy(u => u.FullName))
-                lstAvailable.Items.Add(user.FullName);
+
+            // Группируем по отделам
+            var usersByDept = available.GroupBy(u => u.Department).OrderBy(g => g.Key);
+
+            foreach (var group in usersByDept)
+            {
+                TreeNode deptNode = new TreeNode(group.Key);
+                deptNode.ForeColor = Color.White;
+                foreach (var user in group.OrderBy(u => u.FullName))
+                {
+                    string display = string.IsNullOrEmpty(user.Position)
+                        ? user.FullName
+                        : $"{user.FullName} ({user.Position})";
+                    TreeNode userNode = new TreeNode(display);
+                    userNode.Tag = user; // сохраняем объект User
+                    userNode.ForeColor = Color.White;
+                    deptNode.Nodes.Add(userNode);
+                }
+                tvAvailable.Nodes.Add(deptNode);
+            }
+            tvAvailable.ExpandAll();
         }
 
         private void BtnAdd_Click(object sender, EventArgs e)
         {
-            if (lstAvailable.SelectedItem == null)
+            if (tvAvailable.SelectedNode?.Tag is User user)
+            {
+                networkClient.SendPacket(new NetworkPacket
+                {
+                    Command = Shared.CommandType.AddChatParticipant,
+                    Data = new { chatId, userId = user.Id }
+                });
+            }
+            else
             {
                 MessageBox.Show("Выберите пользователя для добавления.");
-                return;
             }
-
-            var selectedName = lstAvailable.SelectedItem.ToString();
-            var user = allUsers.FirstOrDefault(u => u.FullName == selectedName);
-            if (user == null) return;
-
-            networkClient.SendPacket(new NetworkPacket
-            {
-                Command = Shared.CommandType.AddChatParticipant,
-                Data = new { chatId, userId = user.Id }
-            });
         }
 
         private void BtnRemove_Click(object sender, EventArgs e)
         {
-            if (lstParticipants.SelectedItem == null)
+            if (lstParticipants.SelectedItem != null)
+            {
+                // Пока удаляем по имени – это временное решение, пока не храним объекты.
+                // Лучше хранить в lstParticipants объекты User, используя свойство DisplayMember.
+                // Для простоты оставим так, но потом можно доработать.
+                string selectedName = lstParticipants.SelectedItem.ToString();
+                var user = participants.FirstOrDefault(u => u.FullName == selectedName);
+                if (user != null)
+                {
+                    if (user.Id == currentUserId)
+                    {
+                        MessageBox.Show("Нельзя удалить себя из чата.");
+                        return;
+                    }
+                    networkClient.SendPacket(new NetworkPacket
+                    {
+                        Command = Shared.CommandType.RemoveChatParticipant,
+                        Data = new { chatId, userId = user.Id }
+                    });
+                }
+            }
+            else
             {
                 MessageBox.Show("Выберите пользователя для удаления.");
-                return;
             }
-
-            var selectedName = lstParticipants.SelectedItem.ToString();
-            var user = participants.FirstOrDefault(u => u.FullName == selectedName);
-            if (user == null) return;
-
-            if (user.Id == currentUserId)
-            {
-                MessageBox.Show("Нельзя удалить себя из чата.");
-                return;
-            }
-
-            networkClient.SendPacket(new NetworkPacket
-            {
-                Command = Shared.CommandType.RemoveChatParticipant,
-                Data = new { chatId, userId = user.Id }
-            });
         }
 
         private void BtnClose_Click(object sender, EventArgs e)
@@ -159,7 +192,18 @@ namespace Messenger.Client
             this.Close();
         }
 
-        // Отписка от события при закрытии формы (предотвращает утечки памяти)
+        private void TvAvailable_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            if (e.Node.Tag is User user)
+            {
+                networkClient.SendPacket(new NetworkPacket
+                {
+                    Command = Shared.CommandType.AddChatParticipant,
+                    Data = new { chatId, userId = user.Id }
+                });
+            }
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             networkClient.OnPacketReceived -= OnPacketReceived;
