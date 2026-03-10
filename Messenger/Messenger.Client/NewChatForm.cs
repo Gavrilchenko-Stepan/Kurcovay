@@ -37,7 +37,7 @@ namespace Messenger.Client
             lstDepartments.SelectedIndexChanged += LstDepartments_SelectedIndexChanged;
             tvPrivateUsers.NodeMouseDoubleClick += TvPrivateUsers_NodeMouseDoubleClick;
             tvPrivateUsers.AfterSelect += TvPrivateUsers_AfterSelect;
-            lvGroupUsers.ItemChecked += LvGroupUsers_ItemChecked;
+            tvGroupUsers.AfterCheck += TvGroupUsers_AfterCheck;
             txtChatName.TextChanged += TxtChatName_TextChanged;
             tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
 
@@ -71,6 +71,8 @@ namespace Messenger.Client
             lstDepartments.ForeColor = Color.White;
             tvPrivateUsers.BackColor = Color.FromArgb(60, 60, 80);
             tvPrivateUsers.ForeColor = Color.White;
+            tvGroupUsers.BackColor = Color.FromArgb(60, 60, 80);
+            tvGroupUsers.ForeColor = Color.White;
             txtChatName.BackColor = Color.FromArgb(60, 60, 80);
             txtChatName.ForeColor = Color.White;
             btnCreate.BackColor = Color.FromArgb(0, 229, 255);
@@ -96,24 +98,31 @@ namespace Messenger.Client
 
             Console.WriteLine($"NewChatForm получил: {packet.Command}");
 
-            switch (packet.Command)
+            try
             {
-                case Shared.CommandType.DepartmentsList:
-                    var jsonDept = (JsonElement)packet.Data;
-                    string json = jsonDept.GetRawText();
-                    departments = JsonSerializer.Deserialize<List<Department>>(json);
-                    UpdateDepartmentsList();
-                    break;
-                case Shared.CommandType.AvailableUsersList:
-                    var jsonUsers = (JsonElement)packet.Data;
-                    string usersJson = jsonUsers.GetRawText();
-                    availableUsers = JsonSerializer.Deserialize<List<User>>(usersJson);
-                    UpdateUsersList();
-                    break;
-                case Shared.CommandType.ChatCreated:
-                    DialogResult = DialogResult.OK;
-                    Close();
-                    break;
+                switch (packet.Command)
+                {
+                    case Shared.CommandType.DepartmentsList:
+                        var jsonDept = (JsonElement)packet.Data;
+                        string json = jsonDept.GetRawText();
+                        departments = JsonSerializer.Deserialize<List<Department>>(json);
+                        UpdateDepartmentsList();
+                        break;
+                    case Shared.CommandType.AvailableUsersList:
+                        var jsonUsers = (JsonElement)packet.Data;
+                        string usersJson = jsonUsers.GetRawText();
+                        availableUsers = JsonSerializer.Deserialize<List<User>>(usersJson);
+                        UpdateUsersList();
+                        break;
+                    case Shared.CommandType.ChatCreated:
+                        DialogResult = DialogResult.OK;
+                        Close();
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка обработки пакета: {ex.Message}");
             }
         }
 
@@ -129,6 +138,7 @@ namespace Messenger.Client
 
         private void UpdateUsersList()
         {
+            // Личное дерево
             tvPrivateUsers.Nodes.Clear();
             var usersByDept = availableUsers.Where(u => u.Id != currentUserId)
                                              .GroupBy(u => u.Department)
@@ -150,6 +160,27 @@ namespace Messenger.Client
                 tvPrivateUsers.Nodes.Add(deptNode);
             }
             tvPrivateUsers.ExpandAll();
+
+            // Групповое дерево
+            tvGroupUsers.Nodes.Clear();
+            foreach (var group in usersByDept)
+            {
+                TreeNode deptNode = new TreeNode(group.Key);
+                deptNode.ForeColor = Color.White;
+                foreach (var user in group.OrderBy(u => u.FullName))
+                {
+                    string display = string.IsNullOrEmpty(user.Position)
+                        ? user.FullName
+                        : $"{user.FullName} ({user.Position})";
+                    TreeNode userNode = new TreeNode(display);
+                    userNode.Tag = user;
+                    userNode.ForeColor = Color.White;
+                    deptNode.Nodes.Add(userNode);
+                }
+                tvGroupUsers.Nodes.Add(deptNode);
+            }
+            tvGroupUsers.ExpandAll();
+
             UpdateCreateButton();
         }
 
@@ -159,14 +190,35 @@ namespace Messenger.Client
                 btnCreate.Enabled = lstDepartments.SelectedItem != null;
             else if (tabControl.SelectedTab == tabPrivate)
                 btnCreate.Enabled = tvPrivateUsers.SelectedNode?.Tag is User;
-            else
-                btnCreate.Enabled = !string.IsNullOrWhiteSpace(txtChatName.Text) && lvGroupUsers.CheckedItems.Count > 0;
+            else // tabGroup
+                btnCreate.Enabled = !string.IsNullOrWhiteSpace(txtChatName.Text) && GetCheckedGroupUsers().Count > 0;
+        }
+
+        private List<User> GetCheckedGroupUsers()
+        {
+            var users = new List<User>();
+            foreach (TreeNode deptNode in tvGroupUsers.Nodes)
+            {
+                foreach (TreeNode userNode in deptNode.Nodes)
+                {
+                    if (userNode.Checked && userNode.Tag is User user)
+                        users.Add(user);
+                }
+            }
+            return users;
         }
 
         private void TabControl_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
         private void LstDepartments_SelectedIndexChanged(object sender, EventArgs e) => UpdateCreateButton();
         private void TvPrivateUsers_AfterSelect(object sender, TreeViewEventArgs e) => UpdateCreateButton();
-        private void LvGroupUsers_ItemChecked(object sender, ItemCheckedEventArgs e) => UpdateCreateButton();
+        private void TvGroupUsers_AfterCheck(object sender, TreeViewEventArgs e)
+        {
+            // Чтобы предотвратить рекурсию при программной установке флажков
+            if (e.Action != TreeViewAction.Unknown)
+            {
+                UpdateCreateButton();
+            }
+        }
         private void TxtChatName_TextChanged(object sender, EventArgs e) => UpdateCreateButton();
 
         private void TvPrivateUsers_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
@@ -205,13 +257,9 @@ namespace Messenger.Client
             }
             else if (tabControl.SelectedTab == tabGroup)
             {
-                var participants = new List<int>();
-                foreach (ListViewItem item in lvGroupUsers.CheckedItems)
-                {
-                    if (item.Tag is User u)
-                        participants.Add(u.Id);
-                }
-                participants.Add(currentUserId);
+                var selectedUsers = GetCheckedGroupUsers();
+                var participants = selectedUsers.Select(u => u.Id).ToList();
+                participants.Add(currentUserId); // добавляем себя
                 networkClient.SendPacket(new NetworkPacket
                 {
                     Command = Shared.CommandType.CreateGroupChat,
@@ -230,6 +278,13 @@ namespace Messenger.Client
                 e.Graphics.DrawEllipse(pen, 2, 2, 12, 12);
                 e.Graphics.DrawLine(pen, 11, 11, 16, 16);
             }
+        }
+
+        // Отписка от события при закрытии формы
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            networkClient.OnPacketReceived -= OnPacketReceived;
+            base.OnFormClosing(e);
         }
     }
 }

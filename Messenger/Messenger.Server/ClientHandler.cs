@@ -301,22 +301,21 @@ namespace Messenger.Server
         {
             if (User == null || !User.IsAdmin) return;
 
-            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(packet.Data.ToString());
+            var jsonElement = (JsonElement)packet.Data;
+            string json = jsonElement.GetRawText();
+            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(json);
             int chatId = data["chatId"];
             int userId = data["userId"];
 
             var chat = db.GetChatById(chatId);
-            // Разрешаем только для чатов отделов и групповых
             if (chat == null || (chat.Type != ChatType.Department && chat.Type != ChatType.Group)) return;
 
             db.AddUserToChat(chatId, userId);
 
-            // Отправить обновлённый чат всем участникам
             var updatedChat = db.GetChatById(chatId);
             updatedChat.Participants = db.GetChatParticipants(chatId);
             server.BroadcastToChat(chatId, new NetworkPacket { Command = CommandType.ChatUpdated, Data = updatedChat });
 
-            // Обновить список чатов у нового участника
             var userChats = db.GetUserChats(userId);
             server.BroadcastToUser(userId, new NetworkPacket { Command = CommandType.ChatsList, Data = userChats });
 
@@ -327,11 +326,12 @@ namespace Messenger.Server
         {
             if (User == null || !User.IsAdmin) return;
 
-            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(packet.Data.ToString());
+            var jsonElement = (JsonElement)packet.Data;
+            string json = jsonElement.GetRawText();
+            var data = JsonSerializer.Deserialize<Dictionary<string, int>>(json);
             int chatId = data["chatId"];
             int userId = data["userId"];
 
-            // Нельзя удалить самого себя
             if (userId == User.Id)
             {
                 server.Log($"Администратор {User.FullName} попытался удалить себя из чата {chatId}");
@@ -347,7 +347,6 @@ namespace Messenger.Server
             updatedChat.Participants = db.GetChatParticipants(chatId);
             server.BroadcastToChat(chatId, new NetworkPacket { Command = CommandType.ChatUpdated, Data = updatedChat });
 
-            // Удалённому пользователю отправить обновлённый список чатов (чат исчезнет)
             var userChats = db.GetUserChats(userId);
             server.BroadcastToUser(userId, new NetworkPacket { Command = CommandType.ChatsList, Data = userChats });
 
@@ -357,7 +356,7 @@ namespace Messenger.Server
         private void HandleGetChatInfo(NetworkPacket packet)
         {
             if (User == null) return;
-            int chatId = Convert.ToInt32(packet.Data);
+            int chatId = ((JsonElement)packet.Data).GetInt32(); // для простого числа
             var chat = db.GetChatById(chatId);
             if (chat != null)
             {

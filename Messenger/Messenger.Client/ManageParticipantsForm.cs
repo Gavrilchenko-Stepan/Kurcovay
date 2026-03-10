@@ -27,15 +27,28 @@ namespace Messenger.Client
             this.chatId = chatId;
             this.currentUserId = currentUserId;
             this.networkClient = client;
-            networkClient.OnPacketReceived += OnPacketReceived;
+            this.networkClient.OnPacketReceived += OnPacketReceived;
+
+            // Подписка на события кнопок
+            this.btnAdd.Click += BtnAdd_Click;
+            this.btnRemove.Click += BtnRemove_Click;
+            this.btnClose.Click += BtnClose_Click;
 
             LoadData();
         }
 
         private void LoadData()
         {
-            networkClient.SendPacket(new NetworkPacket { Command = Shared.CommandType.GetChatInfo, Data = chatId });
-            networkClient.SendPacket(new NetworkPacket { Command = Shared.CommandType.GetAvailableUsers, Data = currentUserId });
+            networkClient.SendPacket(new NetworkPacket
+            {
+                Command = Shared.CommandType.GetChatInfo,
+                Data = chatId
+            });
+            networkClient.SendPacket(new NetworkPacket
+            {
+                Command = Shared.CommandType.GetAvailableUsers,
+                Data = currentUserId
+            });
         }
 
         private void OnPacketReceived(NetworkPacket packet)
@@ -46,45 +59,69 @@ namespace Messenger.Client
                 return;
             }
 
-            switch (packet.Command)
+            try
             {
-                case Shared.CommandType.ChatInfo:
-                    currentChat = JsonSerializer.Deserialize<Chat>(packet.Data.ToString());
-                    participants = currentChat.Participants;
-                    UpdateParticipantsList();
-                    break;
-                case Shared.CommandType.AvailableUsersList:
-                    allUsers = JsonSerializer.Deserialize<List<User>>(packet.Data.ToString());
-                    UpdateAvailableUsers();
-                    break;
-                case Shared.CommandType.ChatUpdated:
-                    // Обновить данные после изменений
-                    LoadData();
-                    break;
+                switch (packet.Command)
+                {
+                    case Shared.CommandType.ChatInfo:
+                        var jsonElem = (JsonElement)packet.Data;
+                        string json = jsonElem.GetRawText();
+                        currentChat = JsonSerializer.Deserialize<Chat>(json);
+                        participants = currentChat.Participants;
+                        UpdateParticipantsList();
+                        break;
+
+                    case Shared.CommandType.AvailableUsersList:
+                        var jsonElem2 = (JsonElement)packet.Data;
+                        string json2 = jsonElem2.GetRawText();
+                        allUsers = JsonSerializer.Deserialize<List<User>>(json2);
+                        UpdateAvailableUsers();
+                        break;
+
+                    case Shared.CommandType.ChatUpdated:
+                        // После изменений обновляем данные
+                        LoadData();
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка обработки пакета: {ex.Message}");
             }
         }
 
         private void UpdateParticipantsList()
         {
             lstParticipants.Items.Clear();
-            foreach (var user in participants.OrderBy(u => u.FullName))
-                lstParticipants.Items.Add(user.FullName);
+            if (participants != null)
+            {
+                foreach (var user in participants.OrderBy(u => u.FullName))
+                    lstParticipants.Items.Add(user.FullName);
+            }
         }
 
         private void UpdateAvailableUsers()
         {
-            if (participants == null) return;
-            var available = allUsers.Where(u => !participants.Any(p => p.Id == u.Id)).ToList();
             lstAvailable.Items.Clear();
-            foreach (var user in available)
+            if (allUsers == null || participants == null) return;
+
+            var available = allUsers.Where(u => !participants.Any(p => p.Id == u.Id)).ToList();
+            foreach (var user in available.OrderBy(u => u.FullName))
                 lstAvailable.Items.Add(user.FullName);
         }
 
-        private void btnAdd_Click(object sender, EventArgs e)
+        private void BtnAdd_Click(object sender, EventArgs e)
         {
-            if (lstAvailable.SelectedItem == null) return;
+            if (lstAvailable.SelectedItem == null)
+            {
+                MessageBox.Show("Выберите пользователя для добавления.");
+                return;
+            }
+
             var selectedName = lstAvailable.SelectedItem.ToString();
-            var user = allUsers.First(u => u.FullName == selectedName);
+            var user = allUsers.FirstOrDefault(u => u.FullName == selectedName);
+            if (user == null) return;
+
             networkClient.SendPacket(new NetworkPacket
             {
                 Command = Shared.CommandType.AddChatParticipant,
@@ -92,21 +129,41 @@ namespace Messenger.Client
             });
         }
 
-        private void btnRemove_Click(object sender, EventArgs e)
+        private void BtnRemove_Click(object sender, EventArgs e)
         {
-            if (lstParticipants.SelectedItem == null) return;
+            if (lstParticipants.SelectedItem == null)
+            {
+                MessageBox.Show("Выберите пользователя для удаления.");
+                return;
+            }
+
             var selectedName = lstParticipants.SelectedItem.ToString();
-            var user = participants.First(u => u.FullName == selectedName);
+            var user = participants.FirstOrDefault(u => u.FullName == selectedName);
+            if (user == null) return;
+
             if (user.Id == currentUserId)
             {
                 MessageBox.Show("Нельзя удалить себя из чата.");
                 return;
             }
+
             networkClient.SendPacket(new NetworkPacket
             {
                 Command = Shared.CommandType.RemoveChatParticipant,
                 Data = new { chatId, userId = user.Id }
             });
+        }
+
+        private void BtnClose_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        // Отписка от события при закрытии формы (предотвращает утечки памяти)
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            networkClient.OnPacketReceived -= OnPacketReceived;
+            base.OnFormClosing(e);
         }
     }
 }

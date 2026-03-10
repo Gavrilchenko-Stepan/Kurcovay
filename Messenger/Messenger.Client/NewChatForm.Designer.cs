@@ -17,8 +17,8 @@ namespace Messenger.Client
         private TabPage tabPrivate;
         private TabPage tabGroup;
         private ListBox lstDepartments;
-        private TreeView tvPrivateUsers;      // <-- заменяем ListView на TreeView
-        private ListView lvGroupUsers;
+        private TreeView tvPrivateUsers;
+        private TreeView tvGroupUsers;
         private Label lblChatName;
         private TextBox txtChatName;
         private Panel panelFooter;
@@ -46,11 +46,11 @@ namespace Messenger.Client
             this.picSearch = new System.Windows.Forms.PictureBox();
             this.lstDepartments = new System.Windows.Forms.ListBox();
             this.tabPrivate = new System.Windows.Forms.TabPage();
-            this.tvPrivateUsers = new System.Windows.Forms.TreeView();   // <-- новое
+            this.tvPrivateUsers = new System.Windows.Forms.TreeView();
             this.tabGroup = new System.Windows.Forms.TabPage();
             this.lblChatName = new System.Windows.Forms.Label();
             this.txtChatName = new System.Windows.Forms.TextBox();
-            this.lvGroupUsers = new System.Windows.Forms.ListView();
+            this.tvGroupUsers = new System.Windows.Forms.TreeView();
             this.panelFooter = new System.Windows.Forms.Panel();
             this.btnCreate = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
@@ -187,51 +187,46 @@ namespace Messenger.Client
             this.tvPrivateUsers.Name = "tvPrivateUsers";
             this.tvPrivateUsers.Size = new System.Drawing.Size(460, 355);
             this.tvPrivateUsers.TabIndex = 0;
+            this.tvPrivateUsers.NodeMouseDoubleClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.TvPrivateUsers_NodeMouseDoubleClick);
+            this.tvPrivateUsers.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.TvPrivateUsers_AfterSelect);
 
             // tabGroup
             this.tabGroup.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);
-            this.tabGroup.Controls.Add(this.lblChatName);
+            this.tabGroup.Controls.Add(this.tvGroupUsers);
             this.tabGroup.Controls.Add(this.txtChatName);
-            this.tabGroup.Controls.Add(this.lvGroupUsers);
+            this.tabGroup.Controls.Add(this.lblChatName);
             this.tabGroup.Location = new System.Drawing.Point(4, 26);
             this.tabGroup.Name = "tabGroup";
             this.tabGroup.Padding = new System.Windows.Forms.Padding(15);
             this.tabGroup.Size = new System.Drawing.Size(502, 400);
+            this.tabGroup.TabIndex = 2;
             this.tabGroup.Text = "Групповой";
             this.tabGroup.ForeColor = System.Drawing.Color.White;
 
             // lblChatName
+            this.lblChatName.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblChatName.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.lblChatName.ForeColor = System.Drawing.Color.White;
-            this.lblChatName.Location = new System.Drawing.Point(15, 15);
-            this.lblChatName.Name = "lblChatName";
-            this.lblChatName.Size = new System.Drawing.Size(120, 20);
+            this.lblChatName.Height = 20;
             this.lblChatName.Text = "Название чата:";
+            this.lblChatName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
 
             // txtChatName
             this.txtChatName.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
             this.txtChatName.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtChatName.Dock = System.Windows.Forms.DockStyle.Top;
             this.txtChatName.Font = new System.Drawing.Font("Segoe UI", 10F);
             this.txtChatName.ForeColor = System.Drawing.Color.White;
-            this.txtChatName.Location = new System.Drawing.Point(15, 38);
-            this.txtChatName.Name = "txtChatName";
-            this.txtChatName.Size = new System.Drawing.Size(460, 25);
+            this.txtChatName.Height = 25;
 
-            // lvGroupUsers
-            this.lvGroupUsers.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
-            this.lvGroupUsers.ForeColor = System.Drawing.Color.White;
-            this.lvGroupUsers.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.lvGroupUsers.CheckBoxes = true;
-            this.lvGroupUsers.FullRowSelect = true;
-            this.lvGroupUsers.HideSelection = false;
-            this.lvGroupUsers.MultiSelect = true;
-            this.lvGroupUsers.View = System.Windows.Forms.View.Details;
-            this.lvGroupUsers.Location = new System.Drawing.Point(15, 75);
-            this.lvGroupUsers.Name = "lvGroupUsers";
-            this.lvGroupUsers.Size = new System.Drawing.Size(460, 295);
-            this.lvGroupUsers.TabIndex = 2;
-            this.lvGroupUsers.UseCompatibleStateImageBehavior = false;
-            this.lvGroupUsers.Columns.Add("Пользователи", 430);
+            // tvGroupUsers
+            this.tvGroupUsers.BackColor = System.Drawing.Color.FromArgb(60, 60, 80);
+            this.tvGroupUsers.ForeColor = System.Drawing.Color.White;
+            this.tvGroupUsers.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.tvGroupUsers.CheckBoxes = true;
+            this.tvGroupUsers.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tvGroupUsers.TabIndex = 2;
+            this.tvGroupUsers.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.TvGroupUsers_AfterCheck);
 
             // panelFooter
             this.panelFooter.BackColor = System.Drawing.Color.FromArgb(45, 45, 58);
