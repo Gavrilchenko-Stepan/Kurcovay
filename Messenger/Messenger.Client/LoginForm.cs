@@ -29,6 +29,7 @@ namespace Messenger.Client
             this.AcceptButton = btnLogin;
             btnLogin.Click += BtnLogin_Click;
             btnCancel.Click += BtnCancel_Click;
+            this.picLogo.Paint += PicLogo_Paint;
         }
 
         private void ApplyFuturisticStyle()
@@ -148,6 +149,40 @@ namespace Messenger.Client
             lblError.Text = message;
             lblError.Visible = true;
             lblStatus.Visible = false;
+        }
+
+        private void PicLogo_Paint(object sender, PaintEventArgs e)
+        {
+            // Включаем сглаживание для более красивых линий
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+
+            // Размеры области рисования
+            int width = picLogo.Width;
+            int height = picLogo.Height;
+
+            // Рисуем квадрат (фон)
+            using (var brush = new SolidBrush(Color.FromArgb(0, 229, 255))) // акцентный голубой
+            {
+                e.Graphics.FillRectangle(brush, 0, 0, width, height);
+            }
+
+            // Рисуем белую рамку
+            using (var pen = new Pen(Color.White, 3))
+            {
+                e.Graphics.DrawRectangle(pen, 1, 1, width - 3, height - 3);
+            }
+
+            // Рисуем букву "М" по центру
+            using (var font = new Font("Segoe UI", 50, FontStyle.Bold))
+            using (var brush = new SolidBrush(Color.White))
+            {
+                string text = "М";
+                SizeF textSize = e.Graphics.MeasureString(text, font);
+                float x = (width - textSize.Width) / 2;
+                float y = (height - textSize.Height) / 2;
+                e.Graphics.DrawString(text, font, brush, x, y);
+            }
         }
     }
 }

@@ -155,7 +155,7 @@ namespace Messenger.Client
 
                     UpdateUIAfterLogin();
                     LoadChats();
-                    refreshTimer = new Timer { Interval = 5000 };
+                    refreshTimer = new Timer { Interval = 3000 };
                     refreshTimer.Tick += (s, e) => LoadChats();
                     refreshTimer.Start();
                     this.Show();
@@ -224,6 +224,7 @@ namespace Messenger.Client
                         string jsonChats = jsonElemChats.GetRawText();
                         chats = JsonSerializer.Deserialize<List<Chat>>(jsonChats);
 
+                        // Преобразование имён личных чатов (как у вас)
                         foreach (var chat in chats)
                         {
                             if (chat.Type == ChatType.Private && chat.Participants != null)
@@ -234,12 +235,11 @@ namespace Messenger.Client
                             }
                         }
 
-                        Console.WriteLine($"Получен список чатов: {chats.Count} чатов");
-                        foreach (var c in chats) Console.WriteLine($"  - {c.Name} (Id={c.Id})");
+                        UpdateChatsList();      // обновляет отображение списка
+                        UpdateTotalUsers();     // обновляет счётчик пользователей
+                        ApplySearchFilter();    // повторно применяет текущий фильтр поиска
 
-                        UpdateChatsList();
-                        UpdateTotalUsers();
-
+                        // Проверка на удаление текущего чата
                         if (currentChat != null && !chats.Any(c => c.Id == currentChat.Id))
                         {
                             currentChat = null;
@@ -367,6 +367,7 @@ namespace Messenger.Client
 
                 if (currentChat != null)
                 {
+                    // Пытаемся восстановить выделение текущего чата
                     for (int i = 0; i < lstChats.Items.Count; i++)
                     {
                         if (((Chat)lstChats.Items[i]).Id == currentChat.Id)
@@ -376,7 +377,17 @@ namespace Messenger.Client
                         }
                     }
                 }
+                else
+                {
+                    // Явно сбрасываем интерфейс в состояние "нет выбранного чата"
+                    lstChats.SelectedIndex = -1;
+                    lblChatName.Text = "Выберите чат";
+                    lblChatInfo.Text = "";
+                    lstMessages.Items.Clear();
+                    btnSend.Enabled = false;
+                }
 
+                // Восстанавливаем позицию прокрутки
                 if (topIndex >= 0 && topIndex < lstChats.Items.Count)
                     lstChats.TopIndex = topIndex;
                 else if (lstChats.Items.Count > 0)
@@ -736,22 +747,39 @@ namespace Messenger.Client
         {
             if (e.Index < 0) return;
 
-            using (var backBrush = new SolidBrush(Color.FromArgb(30, 30, 46)))
+            // Определяем, выделен ли элемент
+            bool isSelected = (e.State & DrawItemState.Selected) != 0;
+
+            // Выбираем цвет фона в зависимости от типа элемента и выделения
+            Color backColor;
+            if (lstMessages.Items[e.Index] is string) // разделитель даты
+                backColor = Color.FromArgb(30, 30, 46); // нейтральный фон
+            else
+                backColor = isSelected ? Color.FromArgb(80, 80, 100) : Color.FromArgb(30, 30, 46);
+
+            // Заливаем фон элемента
+            using (var backBrush = new SolidBrush(backColor))
             {
                 e.Graphics.FillRectangle(backBrush, e.Bounds);
             }
 
+            // Если это разделитель даты
             if (lstMessages.Items[e.Index] is string dateStr)
             {
                 using (var font = new Font("Segoe UI", 9, FontStyle.Bold))
                 using (var brush = new SolidBrush(Color.FromArgb(180, 180, 200)))
                 {
-                    var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                    var sf = new StringFormat
+                    {
+                        Alignment = StringAlignment.Center,
+                        LineAlignment = StringAlignment.Center
+                    };
                     e.Graphics.DrawString(dateStr, font, brush, e.Bounds, sf);
                 }
                 return;
             }
 
+            // Если это сообщение
             if (!(lstMessages.Items[e.Index] is Shared.Message msg)) return;
 
             bool isMy = msg.SenderId == currentUser.Id;
@@ -772,21 +800,24 @@ namespace Messenger.Client
                 e.Graphics.DrawPath(pen, path);
             }
 
+            // Имя отправителя
             string senderDisplay = string.IsNullOrEmpty(msg.SenderDepartment)
-                    ? msg.SenderName
-                    : $"{msg.SenderName} ({msg.SenderDepartment})";
+                ? msg.SenderName
+                : $"{msg.SenderName} ({msg.SenderDepartment})";
             using (var font = new Font("Segoe UI", 9, FontStyle.Bold))
             using (var brush = new SolidBrush(Color.White))
             {
                 e.Graphics.DrawString(senderDisplay, font, brush, x + 10, y + 5);
             }
 
+            // Текст сообщения
             using (var font = new Font("Segoe UI", 10))
             using (var brush = new SolidBrush(Color.White))
             {
                 e.Graphics.DrawString(msg.Text, font, brush, x + 10, y + 25);
             }
 
+            // Время
             string tm = msg.SentAt.ToString("HH:mm");
             using (var font = new Font("Segoe UI", 8))
             using (var brush = new SolidBrush(Color.Gray))
@@ -867,31 +898,37 @@ namespace Messenger.Client
         }
 
         private void LstMessages_KeyDown(object sender, KeyEventArgs e)
+{
+    if (e.KeyCode == Keys.Delete && lstMessages.SelectedItem != null)
+    {
+        if (lstMessages.SelectedItem is Shared.Message msg)
         {
-            if (e.KeyCode == Keys.Delete && lstMessages.SelectedItem != null)
+            Console.WriteLine($"DeleteMessage: selected message Id={msg.Id}, SenderId={msg.SenderId}, ChatId={msg.ChatId}");
+            
+            if (msg.SenderId == currentUser.Id || currentUser.IsAdmin)
             {
-                if (lstMessages.SelectedItem is Shared.Message msg)
+                var result = MessageBox.Show("Удалить сообщение?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (result == DialogResult.Yes)
                 {
-                    if (msg.SenderId == currentUser.Id || currentUser.IsAdmin)
+                    networkClient.SendPacket(new NetworkPacket
                     {
-                        var result = MessageBox.Show("Удалить сообщение?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                        if (result == DialogResult.Yes)
-                        {
-                            networkClient.SendPacket(new NetworkPacket
-                            {
-                                Command = Shared.CommandType.DeleteMessage,
-                                Data = msg.Id
-                            });
-                        }
-                    }
-                    else
-                    {
-                        MessageBox.Show("Вы можете удалять только свои сообщения.", "Доступ запрещён", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    }
+                        Command = Shared.CommandType.DeleteMessage,
+                        Data = msg.Id
+                    });
                 }
-                e.Handled = true;
+            }
+            else
+            {
+                MessageBox.Show("Вы можете удалять только свои сообщения.", "Доступ запрещён", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
+        else
+        {
+            MessageBox.Show("Выберите сообщение для удаления.", "Подсказка", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        e.Handled = true;
+    }
+}
 
         private void HandleMessageDeleted(int messageId)
         {
@@ -908,6 +945,31 @@ namespace Messenger.Client
                     }
                     break;
                 }
+            }
+        }
+
+        private void ApplySearchFilter()
+        {
+            string search = txtSearchChats.Text.ToLower().Trim();
+            if (string.IsNullOrWhiteSpace(search) || search == "поиск чатов...")
+            {
+                // Если поиск пуст, показываем все чаты (уже отображены)
+                return;
+            }
+
+            // Фильтруем список чатов по имени
+            var filtered = chats.Where(c => c.Name.ToLower().Contains(search)).ToList();
+
+            lstChats.BeginUpdate();
+            try
+            {
+                lstChats.Items.Clear();
+                foreach (var chat in filtered)
+                    lstChats.Items.Add(chat);
+            }
+            finally
+            {
+                lstChats.EndUpdate();
             }
         }
     }

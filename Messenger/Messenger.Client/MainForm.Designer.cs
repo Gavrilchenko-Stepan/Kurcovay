@@ -193,11 +193,11 @@ namespace Messenger.Client
             this.btnAdminPanel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnAdminPanel.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.btnAdminPanel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(180)))), ((int)(((byte)(0)))));
-            this.btnAdminPanel.Location = new System.Drawing.Point(860, 20);
+            this.btnAdminPanel.Location = new System.Drawing.Point(769, 20);
             this.btnAdminPanel.Name = "btnAdminPanel";
-            this.btnAdminPanel.Size = new System.Drawing.Size(120, 30);
+            this.btnAdminPanel.Size = new System.Drawing.Size(211, 30);
             this.btnAdminPanel.TabIndex = 7;
-            this.btnAdminPanel.Text = "👥 Управление";
+            this.btnAdminPanel.Text = "👥 Управление пользователями";
             this.btnAdminPanel.UseVisualStyleBackColor = false;
             this.btnAdminPanel.Visible = false;
             this.btnAdminPanel.Click += new System.EventHandler(this.BtnAdminPanel_Click);

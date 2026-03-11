@@ -382,20 +382,63 @@ namespace Messenger.Server
 
         private void HandleDeleteMessage(NetworkPacket packet)
         {
-            if (User == null) return;
-            var jsonElement = (JsonElement)packet.Data;
-            int messageId = jsonElement.GetInt32();
+            if (User == null)
+            {
+                server.Log("DeleteMessage: User is null");
+                return;
+            }
+
+            // Получаем ID сообщения из пакета
+            int messageId;
+            try
+            {
+                var jsonElement = (JsonElement)packet.Data;
+                messageId = jsonElement.GetInt32();
+            }
+            catch (Exception ex)
+            {
+                server.Log($"DeleteMessage: Error parsing messageId - {ex.Message}");
+                return;
+            }
+
+            server.Log($"DeleteMessage: Attempt to delete message {messageId} by user {User.Id} ({User.FullName})");
 
             var message = db.GetMessageById(messageId);
-            if (message == null) return;
+            if (message == null)
+            {
+                server.Log($"DeleteMessage: Message {messageId} not found in database");
+                return;
+            }
 
-            // Удалить может отправитель или администратор
-            if (message.SenderId == User.Id || User.IsAdmin)
+            server.Log($"DeleteMessage: Found message: Id={message.Id}, ChatId={message.ChatId}, SenderId={message.SenderId}");
+
+            // Проверяем права: отправитель или администратор
+            if (message.SenderId != User.Id && !User.IsAdmin)
+            {
+                server.Log($"DeleteMessage: User {User.Id} is not sender ({message.SenderId}) and not admin, permission denied");
+                return;
+            }
+
+            // Выполняем удаление
+            try
             {
                 db.DeleteMessage(messageId);
-                server.BroadcastToChat(message.ChatId, new NetworkPacket { Command = CommandType.MessageDeleted, Data = messageId }, -1);
-                server.Log($"Сообщение {messageId} удалено пользователем {User.FullName}");
+                server.Log($"DeleteMessage: Message {messageId} deleted successfully");
             }
+            catch (Exception ex)
+            {
+                server.Log($"DeleteMessage: Error deleting message {messageId} - {ex.Message}");
+                return;
+            }
+
+            // Рассылаем уведомление об удалении всем участникам чата
+            server.BroadcastToChat(message.ChatId, new NetworkPacket
+            {
+                Command = CommandType.MessageDeleted,
+                Data = messageId
+            }, -1);
+
+            server.Log($"DeleteMessage: Broadcast MessageDeleted for message {messageId} to chat {message.ChatId}");
         }
 
         private void HandleGetAllUsers(NetworkPacket packet)
