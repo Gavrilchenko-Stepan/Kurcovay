@@ -84,7 +84,6 @@ namespace Messenger.Client
             this.txtSearchChats.TextChanged += TxtSearchChats_TextChanged;
             this.txtSearchChats.Enter += TxtSearchChats_Enter;
             this.txtSearchChats.Leave += TxtSearchChats_Leave;
-            this.btnAdminPanel.Click += BtnAdminPanel_Click;
         }
 
         // ========== Стилизация ==========

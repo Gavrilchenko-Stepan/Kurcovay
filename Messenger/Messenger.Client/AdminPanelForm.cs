@@ -23,7 +23,7 @@ namespace Messenger.Client
         {
             InitializeComponent();
             networkClient = client;
-            this.currentUserId = currentUserId; // сохраняем
+            this.currentUserId = currentUserId;
             networkClient.OnPacketReceived += OnPacketReceived;
             LoadData();
         }
