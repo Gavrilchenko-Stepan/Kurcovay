@@ -790,25 +790,15 @@ namespace Messenger.Client
         private void LstMessages_DrawItem(object sender, DrawItemEventArgs e)
         {
             if (e.Index < 0) return;
-
-            // Защита: если currentUser ещё не установлен, не рисуем детали
             if (currentUser == null) return;
 
             object item = lstMessages.Items[e.Index];
             if (item == null) return;
 
-            // Фон элемента
-            bool isSelected = (e.State & DrawItemState.Selected) != 0;
-            Color backColor = item is string
-                ? Color.FromArgb(30, 30, 46)
-                : (isSelected ? Color.FromArgb(80, 80, 100) : Color.FromArgb(30, 30, 46));
-
-            using (var backBrush = new SolidBrush(backColor))
-                e.Graphics.FillRectangle(backBrush, e.Bounds);
-
             // Разделитель даты (строка)
             if (item is string dateStr)
             {
+                // Рисуем дату на нейтральном фоне
                 using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
                 using (var brush = new SolidBrush(Color.FromArgb(180, 180, 200)))
                 {
@@ -817,27 +807,33 @@ namespace Messenger.Client
                 return;
             }
 
-            // Сообщение
             if (!(item is Shared.Message msg)) return;
 
             bool isMy = msg.SenderId == currentUser.Id;
+            bool isSelected = (e.State & DrawItemState.Selected) != 0;
+
             const int maxWidth = 400;
             const int padding = 10;
             int x = isMy ? e.Bounds.Right - maxWidth - 20 : e.Bounds.Left + 20;
             int textWidth = maxWidth - 2 * padding;
 
-            // Рисуем фон пузыря
             Rectangle bubbleRect = new Rectangle(x, e.Bounds.Y + 2, maxWidth, e.Bounds.Height - 4);
+
+            // Цвета пузыря в зависимости от выделения
+            Color bgColor = isMy
+                ? (isSelected ? Color.FromArgb(0, 200, 255, 180) : Color.FromArgb(0, 229, 255, 80))
+                : (isSelected ? Color.FromArgb(100, 100, 120) : Color.FromArgb(60, 60, 80));
+
+            Color borderColor = isMy
+                ? (isSelected ? Color.White : Color.FromArgb(0, 229, 255))
+                : (isSelected ? Color.White : Color.Gray);
+
             using (var path = GetRoundedRect(bubbleRect, 10))
+            using (var brush = new SolidBrush(bgColor))
+            using (var pen = new Pen(borderColor, isSelected ? 2 : 1))
             {
-                Color bgColor = isMy ? Color.FromArgb(0, 229, 255, 80) : Color.FromArgb(60, 60, 80);
-                Color borderColor = isMy ? Color.FromArgb(0, 229, 255) : Color.Gray;
-                using (var brush = new SolidBrush(bgColor))
-                using (var pen = new Pen(borderColor, 1))
-                {
-                    e.Graphics.FillPath(brush, path);
-                    e.Graphics.DrawPath(pen, path);
-                }
+                e.Graphics.FillPath(brush, path);
+                e.Graphics.DrawPath(pen, path);
             }
 
             int currentY = e.Bounds.Y + 5;
