@@ -26,26 +26,54 @@ namespace Messenger.Client
         private Font smallFont8;
         private Font iconFont;
         private bool _isUpdatingList = false;
+        private Font messageSenderFont;
+        private Font messageTextFont;
+        private Font messageTimeFont;
+        private Font dateFont;
 
         public MainForm()
         {
             InitializeComponent();
+
+            // Настройка шрифтов для сообщений
+            messageSenderFont = new Font("Segoe UI", 9, FontStyle.Bold);
+            messageTextFont = new Font("Segoe UI", 10);
+            messageTimeFont = new Font("Segoe UI", 8);
+            dateFont = new Font("Segoe UI", 9, FontStyle.Bold);
+
+            // Двойная буферизация для списка чатов
             typeof(ListBox).InvokeMember("DoubleBuffered",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.SetProperty,
                 null, lstChats, new object[] { true });
 
+            // Настройка поля ввода
+            txtMessage.Multiline = true;
+            txtMessage.WordWrap = true;
+            txtMessage.ScrollBars = ScrollBars.Vertical;
+            txtMessage.AcceptsReturn = true;
+            txtMessage.TextChanged += TxtMessage_TextChanged;
+
+            // Шрифты для списка чатов
             boldFont11 = new Font("Segoe UI", 11, FontStyle.Bold);
             normalFont9 = new Font("Segoe UI", 9);
             smallFont8 = new Font("Segoe UI", 8);
             try { iconFont = new Font("Segoe UI Emoji", 16); }
             catch { iconFont = new Font("Segoe UI", 16); }
 
+            // Настройка списка чатов (фиксированная высота элементов)
             lstChats.DrawMode = DrawMode.OwnerDrawFixed;
             lstChats.DrawItem += LstChats_DrawItem;
+
+            // Настройка списка сообщений (динамическая высота элементов)
+            lstMessages.DrawMode = DrawMode.OwnerDrawVariable;
+            lstMessages.MeasureItem += LstMessages_MeasureItem;
             lstMessages.DrawItem += LstMessages_DrawItem;
             lstMessages.KeyDown += LstMessages_KeyDown;
 
+            // Применение стиля
             ApplyFuturisticStyle();
+
+            // Подписка на события
             this.Load += MainForm_Load;
             this.FormClosing += MainForm_FormClosing;
             this.btnNewChat.Click += BtnNewChat_Click;
@@ -56,6 +84,7 @@ namespace Messenger.Client
             this.txtSearchChats.TextChanged += TxtSearchChats_TextChanged;
             this.txtSearchChats.Enter += TxtSearchChats_Enter;
             this.txtSearchChats.Leave += TxtSearchChats_Leave;
+            this.btnAdminPanel.Click += BtnAdminPanel_Click;
         }
 
         // ========== Стилизация ==========
@@ -224,7 +253,7 @@ namespace Messenger.Client
                         string jsonChats = jsonElemChats.GetRawText();
                         chats = JsonSerializer.Deserialize<List<Chat>>(jsonChats);
 
-                        // Преобразование имён личных чатов (как у вас)
+                        // Преобразование имён личных чатов
                         foreach (var chat in chats)
                         {
                             if (chat.Type == ChatType.Private && chat.Participants != null)
@@ -235,9 +264,9 @@ namespace Messenger.Client
                             }
                         }
 
-                        UpdateChatsList();      // обновляет отображение списка
-                        UpdateTotalUsers();     // обновляет счётчик пользователей
-                        ApplySearchFilter();    // повторно применяет текущий фильтр поиска
+                        UpdateChatsList();
+                        UpdateTotalUsers();
+                        ApplySearchFilter();
 
                         // Проверка на удаление текущего чата
                         if (currentChat != null && !chats.Any(c => c.Id == currentChat.Id))
@@ -589,9 +618,24 @@ namespace Messenger.Client
         }
 
         private void BtnSend_Click(object sender, EventArgs e) => SendMessage();
+
         private void TxtMessage_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Enter && !e.Control) { SendMessage(); e.SuppressKeyPress = true; }
+            if (e.KeyCode == Keys.Enter && !e.Shift)
+            {
+                SendMessage();
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Enter && e.Shift)
+            {
+                // Вставляем новую строку в позицию курсора
+                int pos = txtMessage.SelectionStart;
+                txtMessage.Text = txtMessage.Text.Insert(pos, Environment.NewLine);
+                txtMessage.SelectionStart = pos + Environment.NewLine.Length;
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+            }
         }
 
         // ========== Создание нового чата ==========
@@ -747,83 +791,86 @@ namespace Messenger.Client
         {
             if (e.Index < 0) return;
 
-            // Определяем, выделен ли элемент
+            // Защита: если currentUser ещё не установлен, не рисуем детали
+            if (currentUser == null) return;
+
+            object item = lstMessages.Items[e.Index];
+            if (item == null) return;
+
+            // Фон элемента
             bool isSelected = (e.State & DrawItemState.Selected) != 0;
+            Color backColor = item is string
+                ? Color.FromArgb(30, 30, 46)
+                : (isSelected ? Color.FromArgb(80, 80, 100) : Color.FromArgb(30, 30, 46));
 
-            // Выбираем цвет фона в зависимости от типа элемента и выделения
-            Color backColor;
-            if (lstMessages.Items[e.Index] is string) // разделитель даты
-                backColor = Color.FromArgb(30, 30, 46); // нейтральный фон
-            else
-                backColor = isSelected ? Color.FromArgb(80, 80, 100) : Color.FromArgb(30, 30, 46);
-
-            // Заливаем фон элемента
             using (var backBrush = new SolidBrush(backColor))
-            {
                 e.Graphics.FillRectangle(backBrush, e.Bounds);
-            }
 
-            // Если это разделитель даты
-            if (lstMessages.Items[e.Index] is string dateStr)
+            // Разделитель даты (строка)
+            if (item is string dateStr)
             {
-                using (var font = new Font("Segoe UI", 9, FontStyle.Bold))
+                using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
                 using (var brush = new SolidBrush(Color.FromArgb(180, 180, 200)))
                 {
-                    var sf = new StringFormat
-                    {
-                        Alignment = StringAlignment.Center,
-                        LineAlignment = StringAlignment.Center
-                    };
-                    e.Graphics.DrawString(dateStr, font, brush, e.Bounds, sf);
+                    e.Graphics.DrawString(dateStr, dateFont, brush, e.Bounds, sf);
                 }
                 return;
             }
 
-            // Если это сообщение
-            if (!(lstMessages.Items[e.Index] is Shared.Message msg)) return;
+            // Сообщение
+            if (!(item is Shared.Message msg)) return;
 
             bool isMy = msg.SenderId == currentUser.Id;
-            int maxWidth = 400;
-            int x = isMy ? e.Bounds.Width - maxWidth - 20 : e.Bounds.X + 20;
-            int y = e.Bounds.Y + 4;
+            const int maxWidth = 400;
+            const int padding = 10;
+            int x = isMy ? e.Bounds.Right - maxWidth - 20 : e.Bounds.Left + 20;
+            int textWidth = maxWidth - 2 * padding;
 
-            Color bgColor = isMy ? Color.FromArgb(0, 229, 255, 80) : Color.FromArgb(60, 60, 80);
-            Color borderColor = isMy ? Color.FromArgb(0, 229, 255) : Color.Gray;
-
-            Rectangle msgRect = new Rectangle(x, y, maxWidth, e.Bounds.Height - 12);
-
-            using (var brush = new SolidBrush(bgColor))
-            using (var pen = new Pen(borderColor, 1))
-            using (var path = GetRoundedRect(msgRect, 10))
+            // Рисуем фон пузыря
+            Rectangle bubbleRect = new Rectangle(x, e.Bounds.Y + 2, maxWidth, e.Bounds.Height - 4);
+            using (var path = GetRoundedRect(bubbleRect, 10))
             {
-                e.Graphics.FillPath(brush, path);
-                e.Graphics.DrawPath(pen, path);
+                Color bgColor = isMy ? Color.FromArgb(0, 229, 255, 80) : Color.FromArgb(60, 60, 80);
+                Color borderColor = isMy ? Color.FromArgb(0, 229, 255) : Color.Gray;
+                using (var brush = new SolidBrush(bgColor))
+                using (var pen = new Pen(borderColor, 1))
+                {
+                    e.Graphics.FillPath(brush, path);
+                    e.Graphics.DrawPath(pen, path);
+                }
             }
+
+            int currentY = e.Bounds.Y + 5;
 
             // Имя отправителя
             string senderDisplay = string.IsNullOrEmpty(msg.SenderDepartment)
                 ? msg.SenderName
                 : $"{msg.SenderName} ({msg.SenderDepartment})";
-            using (var font = new Font("Segoe UI", 9, FontStyle.Bold))
             using (var brush = new SolidBrush(Color.White))
             {
-                e.Graphics.DrawString(senderDisplay, font, brush, x + 10, y + 5);
+                e.Graphics.DrawString(senderDisplay, messageSenderFont,
+                    brush, new RectangleF(x + padding, currentY, textWidth, 100));
             }
+            SizeF senderSize = e.Graphics.MeasureString(senderDisplay, messageSenderFont, textWidth);
+            currentY += (int)senderSize.Height + 5;
 
             // Текст сообщения
-            using (var font = new Font("Segoe UI", 10))
             using (var brush = new SolidBrush(Color.White))
             {
-                e.Graphics.DrawString(msg.Text, font, brush, x + 10, y + 25);
+                e.Graphics.DrawString(msg.Text, messageTextFont,
+                    brush, new RectangleF(x + padding, currentY, textWidth, 1000));
             }
+            SizeF textSize = e.Graphics.MeasureString(msg.Text, messageTextFont, textWidth);
+            currentY += (int)textSize.Height + 5;
 
             // Время
-            string tm = msg.SentAt.ToString("HH:mm");
-            using (var font = new Font("Segoe UI", 8))
+            string timeStr = msg.SentAt.ToString("HH:mm");
             using (var brush = new SolidBrush(Color.Gray))
             {
-                var sz = e.Graphics.MeasureString(tm, font);
-                e.Graphics.DrawString(tm, font, brush, x + maxWidth - sz.Width - 10, y + 45);
+                SizeF timeSize = e.Graphics.MeasureString(timeStr, messageTimeFont);
+                float timeX = bubbleRect.Right - padding - timeSize.Width;
+                float timeY = bubbleRect.Bottom - timeSize.Height - 5;
+                e.Graphics.DrawString(timeStr, messageTimeFont, brush, timeX, timeY);
             }
         }
 
@@ -898,37 +945,37 @@ namespace Messenger.Client
         }
 
         private void LstMessages_KeyDown(object sender, KeyEventArgs e)
-{
-    if (e.KeyCode == Keys.Delete && lstMessages.SelectedItem != null)
-    {
-        if (lstMessages.SelectedItem is Shared.Message msg)
         {
-            Console.WriteLine($"DeleteMessage: selected message Id={msg.Id}, SenderId={msg.SenderId}, ChatId={msg.ChatId}");
-            
-            if (msg.SenderId == currentUser.Id || currentUser.IsAdmin)
+            if (e.KeyCode == Keys.Delete && lstMessages.SelectedItem != null)
             {
-                var result = MessageBox.Show("Удалить сообщение?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (result == DialogResult.Yes)
+                if (lstMessages.SelectedItem is Shared.Message msg)
                 {
-                    networkClient.SendPacket(new NetworkPacket
+                    Console.WriteLine($"DeleteMessage: selected message Id={msg.Id}, SenderId={msg.SenderId}, ChatId={msg.ChatId}");
+
+                    if (msg.SenderId == currentUser.Id || currentUser.IsAdmin)
                     {
-                        Command = Shared.CommandType.DeleteMessage,
-                        Data = msg.Id
-                    });
+                        var result = MessageBox.Show("Удалить сообщение?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        if (result == DialogResult.Yes)
+                        {
+                            networkClient.SendPacket(new NetworkPacket
+                            {
+                                Command = Shared.CommandType.DeleteMessage,
+                                Data = msg.Id
+                            });
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Вы можете удалять только свои сообщения.", "Доступ запрещён", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
                 }
-            }
-            else
-            {
-                MessageBox.Show("Вы можете удалять только свои сообщения.", "Доступ запрещён", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                else
+                {
+                    MessageBox.Show("Выберите сообщение для удаления.", "Подсказка", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                e.Handled = true;
             }
         }
-        else
-        {
-            MessageBox.Show("Выберите сообщение для удаления.", "Подсказка", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-        e.Handled = true;
-    }
-}
 
         private void HandleMessageDeleted(int messageId)
         {
@@ -970,6 +1017,77 @@ namespace Messenger.Client
             finally
             {
                 lstChats.EndUpdate();
+            }
+        }
+
+        private void LstMessages_MeasureItem(object sender, MeasureItemEventArgs e)
+        {
+            if (e.Index < 0 || lstMessages.Items[e.Index] == null) return;
+
+            // Разделитель даты (строка)
+            if (lstMessages.Items[e.Index] is string)
+            {
+                e.ItemHeight = 30;
+                return;
+            }
+
+            // Сообщение
+            if (lstMessages.Items[e.Index] is Shared.Message msg)
+            {
+                const int maxWidth = 400;          // ширина "пузыря"
+                const int padding = 10;             // отступы внутри пузыря
+                int textWidth = maxWidth - 2 * padding;
+
+                int y = 5; // верхний отступ
+
+                // Имя отправителя
+                string senderDisplay = string.IsNullOrEmpty(msg.SenderDepartment)
+                    ? msg.SenderName
+                    : $"{msg.SenderName} ({msg.SenderDepartment})";
+                SizeF senderSize = e.Graphics.MeasureString(senderDisplay, messageSenderFont, textWidth);
+                y += (int)senderSize.Height + 5;
+
+                // Текст сообщения
+                SizeF textSize = e.Graphics.MeasureString(msg.Text, messageTextFont, textWidth);
+                y += (int)textSize.Height + 5;
+
+                // Время
+                string timeStr = msg.SentAt.ToString("HH:mm");
+                SizeF timeSize = e.Graphics.MeasureString(timeStr, messageTimeFont);
+                y += (int)timeSize.Height + 5;
+
+                e.ItemHeight = y;
+            }
+        }
+
+        private void TxtMessage_TextChanged(object sender, EventArgs e)
+        {
+            // Вычисляем требуемую высоту поля с учётом переноса текста
+            int width = txtMessage.ClientSize.Width;
+            if (width <= 0) return;
+
+            Size proposedSize = new Size(width, int.MaxValue);
+            TextFormatFlags flags = TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl;
+            Size textSize = TextRenderer.MeasureText(txtMessage.Text, txtMessage.Font, proposedSize, flags);
+
+            int newHeight = textSize.Height + 8; // небольшой отступ
+            const int minHeight = 40;
+            const int maxHeight = 150;
+
+            if (newHeight < minHeight) newHeight = minHeight;
+            if (newHeight > maxHeight) newHeight = maxHeight;
+
+            if (txtMessage.Height != newHeight)
+            {
+                // Изменяем высоту поля
+                txtMessage.Height = newHeight;
+
+                // Изменяем высоту панели (учитываем отступы: 10 сверху + 10 снизу)
+                int panelNewHeight = newHeight + 20;
+                panelMessageInput.Height = panelNewHeight;
+
+                // Перемещаем кнопку по вертикали в центр панели
+                btnSend.Top = (panelNewHeight - btnSend.Height) / 2;
             }
         }
     }
