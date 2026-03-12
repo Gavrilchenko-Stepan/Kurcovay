@@ -149,8 +149,8 @@ namespace Messenger.Server
             {
                 if ((long)new SQLiteCommand("SELECT COUNT(*) FROM users", connection).ExecuteScalar() == 0)
                 {
-                    new SQLiteCommand("INSERT INTO departments (name) VALUES ('Администрация')", connection).ExecuteNonQuery();
-                    long deptId = (long)new SQLiteCommand("SELECT id FROM departments WHERE name='Администрация'", connection).ExecuteScalar();
+                    new SQLiteCommand("INSERT INTO departments (name) VALUES ('ИТ отдел')", connection).ExecuteNonQuery();
+                    long deptId = (long)new SQLiteCommand("SELECT id FROM departments WHERE name='ИТ отдел'", connection).ExecuteScalar();
 
                     using (var cmd = new SQLiteCommand("INSERT INTO users (username, password, full_name, department_id, is_admin) VALUES (@u, @p, @f, @d, @a)", connection))
                     {

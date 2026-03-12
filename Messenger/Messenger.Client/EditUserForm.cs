@@ -62,7 +62,7 @@ namespace Messenger.Client
             }
             if (string.IsNullOrWhiteSpace(txtFullName.Text))
             {
-                MessageBox.Show("Введите ФИО.");
+                MessageBox.Show("Введите ФИ.");
                 return;
             }
             if (cmbDepartment.SelectedItem == null)
