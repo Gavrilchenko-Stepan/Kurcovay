@@ -31,6 +31,9 @@ namespace Messenger.Client
         private Font messageTimeFont;
         private Font dateFont;
 
+        private List<int> selectedMessageIndices = new List<int>();
+        private int lastSelectedIndex = -1;
+
         public MainForm()
         {
             InitializeComponent();
@@ -68,6 +71,7 @@ namespace Messenger.Client
             lstMessages.DrawMode = DrawMode.OwnerDrawVariable;
             lstMessages.MeasureItem += LstMessages_MeasureItem;
             lstMessages.DrawItem += LstMessages_DrawItem;
+
 
             // Подписка на события
             this.Load += MainForm_Load;
@@ -434,6 +438,8 @@ namespace Messenger.Client
         // ========== Отображение сообщений ==========
         private void DisplayMessages()
         {
+            selectedMessageIndices.Clear();
+            lastSelectedIndex = -1;
             lstMessages.Items.Clear();
             if (!messages.ContainsKey(currentChat.Id)) return;
 
@@ -774,7 +780,7 @@ namespace Messenger.Client
             if (!(item is Shared.Message msg)) return;
 
             bool isMy = msg.SenderId == currentUser.Id;
-            bool isSelected = (e.State & DrawItemState.Selected) != 0;
+            bool isSelected = selectedMessageIndices.Contains(e.Index);
 
             const int maxWidth = 400;
             const int padding = 10;
@@ -784,13 +790,16 @@ namespace Messenger.Client
             Rectangle bubbleRect = new Rectangle(x, e.Bounds.Y + 2, maxWidth, e.Bounds.Height - 4);
 
             // Цвета пузыря в зависимости от выделения
-            Color bgColor = isMy
-                ? (isSelected ? Color.FromArgb(0, 200, 255, 180) : Color.FromArgb(0, 229, 255, 80))
-                : (isSelected ? Color.FromArgb(100, 100, 120) : Color.FromArgb(60, 60, 80));
-
-            Color borderColor = isMy
-                ? (isSelected ? Color.White : Color.FromArgb(0, 229, 255))
-                : (isSelected ? Color.White : Color.Gray);
+            Color bgColor;
+            if (isMy)
+            {
+                bgColor = isSelected ? Color.FromArgb(0, 120, 215) : Color.FromArgb(0, 229, 255, 80);
+            }
+            else
+            {
+                bgColor = isSelected ? Color.FromArgb(0, 100, 200) : Color.FromArgb(60, 60, 80);
+            }
+            Color borderColor = isSelected ? Color.White : (isMy ? Color.FromArgb(0, 229, 255) : Color.Gray);
 
             using (var path = GetRoundedRect(bubbleRect, 10))
             using (var brush = new SolidBrush(bgColor))
@@ -906,33 +915,24 @@ namespace Messenger.Client
 
         private void LstMessages_KeyDown(object sender, KeyEventArgs e)
         {
-            // Ctrl+A – выделить все сообщения
             if (e.Control && e.KeyCode == Keys.A)
             {
-                lstMessages.BeginUpdate();
-                try
-                {
-                    for (int i = 0; i < lstMessages.Items.Count; i++)
-                        if (lstMessages.Items[i] is Shared.Message)
-                            lstMessages.SetSelected(i, true);
-                }
-                finally
-                {
-                    lstMessages.EndUpdate();
-                }
+                selectedMessageIndices.Clear();
+                for (int i = 0; i < lstMessages.Items.Count; i++)
+                    if (lstMessages.Items[i] is Shared.Message)
+                        selectedMessageIndices.Add(i);
+                lstMessages.Invalidate();
                 e.SuppressKeyPress = true;
                 e.Handled = true;
                 return;
             }
 
             // Delete – удалить выделенные сообщения
-            if (e.KeyCode == Keys.Delete && lstMessages.SelectedItems.Count > 0)
+            if (e.KeyCode == Keys.Delete && selectedMessageIndices.Count > 0)
             {
-                // Собираем выделенные сообщения (игнорируем строки-разделители дат)
-                var selectedMessages = lstMessages.SelectedItems
-                    .OfType<object>()
-                    .Where(item => item is Shared.Message)
-                    .Cast<Shared.Message>()
+                var selectedMessages = selectedMessageIndices
+                    .Select(i => lstMessages.Items[i] as Shared.Message)
+                    .Where(m => m != null)
                     .ToList();
 
                 if (selectedMessages.Count == 0)
@@ -979,7 +979,9 @@ namespace Messenger.Client
             else if (e.KeyCode == Keys.Escape)
             {
                 lstMessages.ClearSelected();
+                lstMessages.SelectedIndex = -1;
                 e.Handled = true;
+                txtMessage.Focus();
             }
         }
 
@@ -1101,8 +1103,59 @@ namespace Messenger.Client
         private void LstMessages_MouseDown(object sender, MouseEventArgs e)
         {
             int index = lstMessages.IndexFromPoint(e.Location);
-            if (index == ListBox.NoMatches)
-                lstMessages.ClearSelected();
+            bool clickOnEmpty = false;
+
+            if (index == -1)
+                clickOnEmpty = true;
+            else
+            {
+                Rectangle rect = lstMessages.GetItemRectangle(index);
+                if (!rect.Contains(e.Location))
+                    clickOnEmpty = true;
+            }
+
+            // Клик на пустом месте или на разделителе даты -> сброс выделения
+            if (clickOnEmpty || (index >= 0 && lstMessages.Items[index] is string))
+            {
+                selectedMessageIndices.Clear();
+                lastSelectedIndex = -1;
+                lstMessages.Invalidate();
+                return;
+            }
+
+            // Клик на сообщении
+            if (index < 0 || !(lstMessages.Items[index] is Shared.Message))
+                return;
+
+            if (ModifierKeys.HasFlag(Keys.Control))
+            {
+                // Ctrl: инвертируем выделение текущего сообщения
+                if (selectedMessageIndices.Contains(index))
+                    selectedMessageIndices.Remove(index);
+                else
+                    selectedMessageIndices.Add(index);
+                lastSelectedIndex = index;
+            }
+            else if (ModifierKeys.HasFlag(Keys.Shift) && lastSelectedIndex != -1)
+            {
+                // Shift: выделяем диапазон от lastSelectedIndex до index
+                int start = Math.Min(lastSelectedIndex, index);
+                int end = Math.Max(lastSelectedIndex, index);
+                for (int i = start; i <= end; i++)
+                {
+                    if (lstMessages.Items[i] is Shared.Message && !selectedMessageIndices.Contains(i))
+                        selectedMessageIndices.Add(i);
+                }
+                lastSelectedIndex = index;
+            }
+            else
+            {
+                // Без модификаторов: сбрасываем всё и выделяем только текущее сообщение
+                selectedMessageIndices.Clear();
+                selectedMessageIndices.Add(index);
+                lastSelectedIndex = index;
+            }
+            lstMessages.Invalidate();
         }
     }
 }
