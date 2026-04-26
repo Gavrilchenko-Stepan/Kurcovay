@@ -205,7 +205,7 @@ namespace Messenger.Server
             msg.SentAt = DateTime.Now;
             int id = db.SaveMessage(msg);
             msg.Id = id;
-            server.BroadcastToChat(msg.ChatId, new NetworkPacket { Command = CommandType.NewMessage, Data = msg }, User.Id);
+            server.BroadcastToChat(msg.ChatId, new NetworkPacket { Command = CommandType.NewMessage, Data = msg }, -1);
             server.Log($"Сообщение от {User.FullName} в чат {msg.ChatId}");
         }
 

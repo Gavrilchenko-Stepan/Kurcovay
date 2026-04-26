@@ -68,10 +68,6 @@ namespace Messenger.Client
             lstMessages.DrawMode = DrawMode.OwnerDrawVariable;
             lstMessages.MeasureItem += LstMessages_MeasureItem;
             lstMessages.DrawItem += LstMessages_DrawItem;
-            lstMessages.KeyDown += LstMessages_KeyDown;
-
-            // Применение стиля
-            ApplyFuturisticStyle();
 
             // Подписка на события
             this.Load += MainForm_Load;
@@ -79,73 +75,10 @@ namespace Messenger.Client
             this.btnNewChat.Click += BtnNewChat_Click;
             this.btnLogout.Click += BtnLogout_Click;
             this.btnSend.Click += BtnSend_Click;
-            this.txtMessage.KeyDown += TxtMessage_KeyDown;
             this.lstChats.SelectedIndexChanged += LstChats_SelectedIndexChanged;
             this.txtSearchChats.TextChanged += TxtSearchChats_TextChanged;
             this.txtSearchChats.Enter += TxtSearchChats_Enter;
             this.txtSearchChats.Leave += TxtSearchChats_Leave;
-        }
-
-        // ========== Стилизация ==========
-        private void ApplyFuturisticStyle()
-        {
-            this.BackColor = Color.FromArgb(30, 30, 46);
-            this.ForeColor = Color.White;
-
-            panelTop.BackColor = Color.FromArgb(20, 20, 30);
-            panelTopGradient.BackColor = Color.FromArgb(20, 20, 30);
-
-            picUserAvatar.BackColor = Color.FromArgb(0, 229, 255);
-            lblUserName.ForeColor = Color.White;
-            lblUserDepartment.ForeColor = Color.FromArgb(180, 180, 200);
-            lblUserStatus.ForeColor = Color.FromArgb(76, 175, 80);
-
-            btnNewChat.BackColor = Color.Transparent;
-            btnNewChat.FlatStyle = FlatStyle.Flat;
-            btnNewChat.FlatAppearance.BorderColor = Color.FromArgb(0, 229, 255);
-            btnNewChat.ForeColor = Color.FromArgb(0, 229, 255);
-            btnNewChat.Text = "➕ Новый чат";
-
-            btnLogout.BackColor = Color.Transparent;
-            btnLogout.FlatStyle = FlatStyle.Flat;
-            btnLogout.FlatAppearance.BorderColor = Color.FromArgb(255, 80, 80);
-            btnLogout.ForeColor = Color.FromArgb(255, 80, 80);
-            btnLogout.Text = "🚪";
-
-            panelLeft.BackColor = Color.FromArgb(45, 45, 58);
-            panelLeftHeader.BackColor = Color.FromArgb(45, 45, 58);
-            lblChats.ForeColor = Color.FromArgb(0, 229, 255);
-            txtSearchChats.BackColor = Color.FromArgb(60, 60, 80);
-            txtSearchChats.ForeColor = Color.White;
-            txtSearchChats.BorderStyle = BorderStyle.None;
-
-            lstChats.BackColor = Color.FromArgb(45, 45, 58);
-            lstChats.ForeColor = Color.White;
-
-            panelLeftFooter.BackColor = Color.FromArgb(30, 30, 46);
-            lblTotalUsers.ForeColor = Color.FromArgb(180, 180, 200);
-
-            panelRight.BackColor = Color.FromArgb(30, 30, 46);
-            panelChatHeader.BackColor = Color.FromArgb(45, 45, 58);
-            lblChatName.ForeColor = Color.White;
-            lblChatInfo.ForeColor = Color.FromArgb(180, 180, 200);
-
-            lstMessages.BackColor = Color.FromArgb(30, 30, 46);
-            lstMessages.ForeColor = Color.White;
-
-            panelMessageInput.BackColor = Color.FromArgb(45, 45, 58);
-            txtMessage.BackColor = Color.FromArgb(60, 60, 80);
-            txtMessage.ForeColor = Color.White;
-            txtMessage.BorderStyle = BorderStyle.FixedSingle;
-
-            btnSend.BackColor = Color.FromArgb(0, 229, 255);
-            btnSend.ForeColor = Color.Black;
-            btnSend.FlatStyle = FlatStyle.Flat;
-            btnSend.FlatAppearance.BorderSize = 0;
-
-            panelStatusBar.BackColor = Color.FromArgb(20, 20, 30);
-            lblConnectionStatus.ForeColor = Color.FromArgb(180, 180, 200);
-            lblServerInfo.ForeColor = Color.FromArgb(180, 180, 200);
         }
 
         // ========== Загрузка формы ==========
@@ -527,6 +460,10 @@ namespace Messenger.Client
 
         private void HandleNewMessage(Shared.Message msg)
         {
+            if (messages.ContainsKey(msg.ChatId) && messages[msg.ChatId].Any(m => m.Id == msg.Id))
+                return;
+
+            // Добавляем в словарь
             if (!messages.ContainsKey(msg.ChatId))
                 messages[msg.ChatId] = new List<Shared.Message>();
             messages[msg.ChatId].Add(msg);
@@ -539,10 +476,38 @@ namespace Messenger.Client
                 if (currentChat?.Id != msg.ChatId)
                     chat.UnreadCount++;
                 UpdateChatsList();
+
+                // Обновляем UI текущего чата
                 if (currentChat?.Id == msg.ChatId)
                 {
-                    lstMessages.Items.Add(msg);
-                    lstMessages.TopIndex = lstMessages.Items.Count - 1;
+                    lstMessages.BeginUpdate();
+                    try
+                    {
+                        // Добавляем разделитель даты, если нужно
+                        DateTime? lastDate = null;
+                        if (lstMessages.Items.Count > 0)
+                        {
+                            object lastItem = lstMessages.Items[lstMessages.Items.Count - 1];
+                            if (lastItem is string lastStr)
+                                DateTime.TryParse(lastStr, out var parsed);
+                            else if (lastItem is Shared.Message lastMsg)
+                                lastDate = lastMsg.SentAt.Date;
+                        }
+                        if (lastDate == null || msg.SentAt.Date != lastDate.Value.Date)
+                        {
+                            lstMessages.Items.Add(msg.SentAt.ToString("d MMMM yyyy"));
+                        }
+                        lstMessages.Items.Add(msg);
+                    }
+                    finally
+                    {
+                        lstMessages.EndUpdate();
+                    }
+                    // Принудительная перерисовка и прокрутка вниз
+                    lstMessages.Refresh();
+                    if (lstMessages.Items.Count > 0)
+                        lstMessages.TopIndex = lstMessages.Items.Count - 1;
+
                     SendReadReceipt(msg.ChatId, msg.Id);
                 }
             }
@@ -606,13 +571,13 @@ namespace Messenger.Client
                 SentAt = DateTime.Now
             };
 
-            if (!messages.ContainsKey(msg.ChatId))
-                messages[msg.ChatId] = new List<Shared.Message>();
-            messages[msg.ChatId].Add(msg);
-            lstMessages.Items.Add(msg);
-            lstMessages.TopIndex = lstMessages.Items.Count - 1;
-
-            networkClient.SendPacket(new NetworkPacket { Command = Shared.CommandType.SendMessage, UserId = currentUser.Id, Data = msg });
+            // Отправляем на сервер, НЕ добавляем в локальные списки
+            networkClient.SendPacket(new NetworkPacket
+            {
+                Command = Shared.CommandType.SendMessage,
+                UserId = currentUser.Id,
+                Data = msg
+            });
             txtMessage.Clear();
         }
 
@@ -941,33 +906,79 @@ namespace Messenger.Client
 
         private void LstMessages_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Delete && lstMessages.SelectedItem != null)
+            // Ctrl+A – выделить все сообщения
+            if (e.Control && e.KeyCode == Keys.A)
             {
-                if (lstMessages.SelectedItem is Shared.Message msg)
+                lstMessages.BeginUpdate();
+                try
                 {
-                    Console.WriteLine($"DeleteMessage: selected message Id={msg.Id}, SenderId={msg.SenderId}, ChatId={msg.ChatId}");
+                    for (int i = 0; i < lstMessages.Items.Count; i++)
+                        if (lstMessages.Items[i] is Shared.Message)
+                            lstMessages.SetSelected(i, true);
+                }
+                finally
+                {
+                    lstMessages.EndUpdate();
+                }
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+                return;
+            }
 
-                    if (msg.SenderId == currentUser.Id || currentUser.IsAdmin)
-                    {
-                        var result = MessageBox.Show("Удалить сообщение?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                        if (result == DialogResult.Yes)
-                        {
-                            networkClient.SendPacket(new NetworkPacket
-                            {
-                                Command = Shared.CommandType.DeleteMessage,
-                                Data = msg.Id
-                            });
-                        }
-                    }
-                    else
-                    {
-                        MessageBox.Show("Вы можете удалять только свои сообщения.", "Доступ запрещён", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    }
-                }
-                else
+            // Delete – удалить выделенные сообщения
+            if (e.KeyCode == Keys.Delete && lstMessages.SelectedItems.Count > 0)
+            {
+                // Собираем выделенные сообщения (игнорируем строки-разделители дат)
+                var selectedMessages = lstMessages.SelectedItems
+                    .OfType<object>()
+                    .Where(item => item is Shared.Message)
+                    .Cast<Shared.Message>()
+                    .ToList();
+
+                if (selectedMessages.Count == 0)
                 {
-                    MessageBox.Show("Выберите сообщение для удаления.", "Подсказка", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("Выберите хотя бы одно сообщение.", "Подсказка",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    e.Handled = true;
+                    return;
                 }
+
+                // Проверка прав: только свои сообщения или админ
+                bool canDeleteAll = selectedMessages.All(msg => msg.SenderId == currentUser.Id || currentUser.IsAdmin);
+                if (!canDeleteAll)
+                {
+                    MessageBox.Show("Вы можете удалять только свои сообщения.", "Доступ запрещён",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    e.Handled = true;
+                    return;
+                }
+
+                // Подтверждение удаления
+                string confirmMsg = selectedMessages.Count == 1
+                    ? "Удалить выбранное сообщение?"
+                    : $"Удалить {selectedMessages.Count} сообщений?";
+                if (MessageBox.Show(confirmMsg, "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                // Отправляем команду на удаление для каждого сообщения
+                foreach (var msg in selectedMessages)
+                {
+                    networkClient.SendPacket(new NetworkPacket
+                    {
+                        Command = Shared.CommandType.DeleteMessage,
+                        Data = msg.Id
+                    });
+                }
+
+                e.Handled = true;
+            }
+            // Escape – сброс выделения
+            else if (e.KeyCode == Keys.Escape)
+            {
+                lstMessages.ClearSelected();
                 e.Handled = true;
             }
         }
@@ -981,6 +992,7 @@ namespace Messenger.Client
                 if (msg != null)
                 {
                     msgList.Remove(msg);
+                    // Если удаление произошло в текущем открытом чате – обновляем интерфейс
                     if (kv.Key == currentChat?.Id)
                     {
                         DisplayMessages();
@@ -1084,6 +1096,13 @@ namespace Messenger.Client
                 // Перемещаем кнопку по вертикали в центр панели
                 btnSend.Top = (panelNewHeight - btnSend.Height) / 2;
             }
+        }
+
+        private void LstMessages_MouseDown(object sender, MouseEventArgs e)
+        {
+            int index = lstMessages.IndexFromPoint(e.Location);
+            if (index == ListBox.NoMatches)
+                lstMessages.ClearSelected();
         }
     }
 }

@@ -408,8 +408,11 @@ namespace Messenger.Client
             this.lstMessages.ItemHeight = 80;
             this.lstMessages.Location = new System.Drawing.Point(10, 110);
             this.lstMessages.Name = "lstMessages";
+            this.lstMessages.SelectionMode = System.Windows.Forms.SelectionMode.MultiExtended;
             this.lstMessages.Size = new System.Drawing.Size(830, 425);
             this.lstMessages.TabIndex = 1;
+            this.lstMessages.KeyDown += new System.Windows.Forms.KeyEventHandler(this.LstMessages_KeyDown);
+            this.lstMessages.MouseDown += new System.Windows.Forms.MouseEventHandler(this.LstMessages_MouseDown);
             // 
             // panelMessageInput
             // 
