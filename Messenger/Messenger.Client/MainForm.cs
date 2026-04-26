@@ -83,6 +83,12 @@ namespace Messenger.Client
             this.txtSearchChats.TextChanged += TxtSearchChats_TextChanged;
             this.txtSearchChats.Enter += TxtSearchChats_Enter;
             this.txtSearchChats.Leave += TxtSearchChats_Leave;
+            this.btnViewParticipants.Click += BtnViewParticipants_Click;
+        }
+
+        private void BtnViewParticipants_Click1(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
         }
 
         // ========== Загрузка формы ==========
@@ -895,6 +901,8 @@ namespace Messenger.Client
                 lblChatInfo.Text = $"Чат отдела • {totalParticipants} уч. • {onlineCount} онлайн";
             }
 
+            btnViewParticipants.Visible = (currentChat.Type != ChatType.Private);
+
             btnManageParticipants.Visible = (currentUser != null && currentUser.IsAdmin &&
                 (currentChat.Type == ChatType.Department || currentChat.Type == ChatType.Group));
 
@@ -1156,6 +1164,15 @@ namespace Messenger.Client
                 lastSelectedIndex = index;
             }
             lstMessages.Invalidate();
+        }
+
+        private void BtnViewParticipants_Click(object sender, EventArgs e)
+        {
+            if (currentChat == null) return;
+            using (var form = new ViewParticipantsForm(currentChat.Id, currentUser.Id, networkClient))
+            {
+                form.ShowDialog();
+            }
         }
     }
 }
