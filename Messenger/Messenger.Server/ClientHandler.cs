@@ -107,6 +107,9 @@ namespace Messenger.Server
                 case CommandType.DeleteUser:
                     HandleDeleteUser(packet);
                     break;
+                case CommandType.EditMessage:
+                    HandleEditMessage(packet);
+                    break;
             }
         }
 
@@ -489,6 +492,24 @@ namespace Messenger.Server
             }
             db.DeleteUser(userId);
             SendPacket(new NetworkPacket { Command = CommandType.AllUsersList, Data = db.GetAllUsers() });
+        }
+
+        private void HandleEditMessage(NetworkPacket packet)
+        {
+            if (User == null) return;
+            var jsonElement = (JsonElement)packet.Data;
+            int messageId = jsonElement.GetProperty("messageId").GetInt32();
+            string newText = jsonElement.GetProperty("newText").GetString();
+
+            var msg = db.GetMessageById(messageId);
+            if (msg == null) return;
+            if (msg.SenderId != User.Id && !User.IsAdmin) return;
+
+            if (db.UpdateMessage(messageId, newText))
+            {
+                var updatedMsg = db.GetMessageById(messageId);
+                server.BroadcastToChat(msg.ChatId, new NetworkPacket { Command = CommandType.MessageEdited, Data = updatedMsg }, -1);
+            }
         }
     }
 }

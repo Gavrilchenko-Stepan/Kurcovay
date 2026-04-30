@@ -47,6 +47,21 @@ namespace Messenger.Server
                     }
 
                     CreateTables();
+
+                    string checkColumn = "PRAGMA table_info(messages)";
+                    using (var cmd = new SQLiteCommand(checkColumn, connection))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        bool hasEditedAt = false;
+                        while (reader.Read())
+                            if (reader["name"].ToString() == "edited_at") hasEditedAt = true;
+                        if (!hasEditedAt)
+                        {
+                            using (var alter = new SQLiteCommand("ALTER TABLE messages ADD COLUMN edited_at DATETIME", connection))
+                                alter.ExecuteNonQuery();
+                            Console.WriteLine("Добавлена колонка edited_at в таблицу messages.");
+                        }
+                    }
                     EnsureFirstUser();
                     return; // Успех – выходим
                 }
@@ -571,13 +586,13 @@ namespace Messenger.Server
             lock (dbLock)
             {
                 string query = @"
-                    SELECT m.id, m.chat_id, m.sender_id, m.text, m.sent_at, m.is_read, 
-                           u.full_name, d.name as department_name
-                    FROM messages m
-                    JOIN users u ON m.sender_id = u.id
-                    JOIN departments d ON u.department_id = d.id
-                    WHERE m.chat_id = @cid
-                    ORDER BY m.sent_at ASC LIMIT 100";
+            SELECT m.id, m.chat_id, m.sender_id, m.text, m.sent_at, m.is_read, 
+                   u.full_name, d.name as department_name, m.edited_at
+            FROM messages m
+            JOIN users u ON m.sender_id = u.id
+            JOIN departments d ON u.department_id = d.id
+            WHERE m.chat_id = @cid
+            ORDER BY m.sent_at ASC LIMIT 100";
                 using (var cmd = new SQLiteCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@cid", chatId);
@@ -594,7 +609,8 @@ namespace Messenger.Server
                                 SentAt = reader.GetDateTime(4),
                                 IsRead = reader.GetBoolean(5),
                                 SenderName = reader.GetString(6),
-                                SenderDepartment = reader.GetString(7)
+                                SenderDepartment = reader.GetString(7),
+                                EditedAt = reader.IsDBNull(8) ? (DateTime?)null : reader.GetDateTime(8)
                             });
                         }
                     }
@@ -639,7 +655,7 @@ namespace Messenger.Server
         {
             lock (dbLock)
             {
-                string query = "SELECT id, chat_id, sender_id FROM messages WHERE id = @id";
+                string query = "SELECT id, chat_id, sender_id, text, sent_at, is_read, edited_at FROM messages WHERE id = @id";
                 using (var cmd = new SQLiteCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@id", messageId);
@@ -651,7 +667,11 @@ namespace Messenger.Server
                             {
                                 Id = reader.GetInt32(0),
                                 ChatId = reader.GetInt32(1),
-                                SenderId = reader.GetInt32(2)
+                                SenderId = reader.GetInt32(2),
+                                Text = reader.GetString(3),
+                                SentAt = reader.GetDateTime(4),
+                                IsRead = reader.GetBoolean(5),
+                                EditedAt = reader.IsDBNull(6) ? (DateTime?)null : reader.GetDateTime(6)
                             };
                         }
                     }
@@ -838,6 +858,20 @@ namespace Messenger.Server
                 {
                     cmd.Parameters.AddWithValue("@id", userId);
                     cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public bool UpdateMessage(int messageId, string newText)
+        {
+            lock (dbLock)
+            {
+                string query = "UPDATE messages SET text = @text, edited_at = CURRENT_TIMESTAMP WHERE id = @id";
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@text", newText);
+                    cmd.Parameters.AddWithValue("@id", messageId);
+                    return cmd.ExecuteNonQuery() > 0;
                 }
             }
         }

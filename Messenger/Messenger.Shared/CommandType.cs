@@ -41,6 +41,9 @@ namespace Messenger.Shared
         DeleteMessage,
         MessageDeleted,
 
+        EditMessage,
+        MessageEdited,
+
         GetAllUsers,
         AllUsersList,
         AddUser,

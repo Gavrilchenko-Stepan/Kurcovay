@@ -18,6 +18,8 @@ namespace Messenger.Shared
         public DateTime SentAt { get; set; }
         public bool IsRead { get; set; }
 
+        public DateTime? EditedAt { get; set; }
+
         public override string ToString() => $"{SenderName}: {Text} ({SentAt:HH:mm})";
     }
 }

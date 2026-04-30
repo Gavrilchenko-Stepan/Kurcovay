@@ -34,6 +34,9 @@ namespace Messenger.Client
         private List<int> selectedMessageIndices = new List<int>();
         private int lastSelectedIndex = -1;
 
+        private Shared.Message editingMessage = null;
+        private string originalMessageText = "";
+
         public MainForm()
         {
             InitializeComponent();
@@ -84,6 +87,21 @@ namespace Messenger.Client
             this.txtSearchChats.Enter += TxtSearchChats_Enter;
             this.txtSearchChats.Leave += TxtSearchChats_Leave;
             this.btnViewParticipants.Click += BtnViewParticipants_Click;
+            lstMessages.DoubleClick += LstMessages_DoubleClick;
+
+            this.KeyPreview = true;
+            this.KeyDown += MainForm_KeyDown;
+        }
+
+        private void LstMessages_DoubleClick(object sender, EventArgs e)
+        {
+            Point mousePos = lstMessages.PointToClient(Cursor.Position);
+            int index = lstMessages.IndexFromPoint(mousePos);
+            if (index < 0) return;
+            if (lstMessages.Items[index] is Shared.Message msg)
+            {
+                StartEditingMessage(msg);
+            }
         }
 
         private void BtnViewParticipants_Click1(object sender, EventArgs e)
@@ -297,6 +315,12 @@ namespace Messenger.Client
                     case Shared.CommandType.MessageDeleted:
                         int deletedId = ((JsonElement)packet.Data).GetInt32();
                         HandleMessageDeleted(deletedId);
+                        break;
+
+                    case Shared.CommandType.MessageEdited:
+                        var jsonEdited = (JsonElement)packet.Data;
+                        var editedMsg = JsonSerializer.Deserialize<Shared.Message>(jsonEdited.GetRawText());
+                        Invoke(new Action(() => HandleMessageEdited(editedMsg)));
                         break;
                 }
             }
@@ -593,13 +617,13 @@ namespace Messenger.Client
             txtMessage.Clear();
         }
 
-        private void BtnSend_Click(object sender, EventArgs e) => SendMessage();
+        private void BtnSend_Click(object sender, EventArgs e) => SendOrEdit();
 
         private void TxtMessage_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter && !e.Shift)
             {
-                SendMessage();
+                SendOrEdit();
                 e.SuppressKeyPress = true;
                 e.Handled = true;
             }
@@ -610,6 +634,11 @@ namespace Messenger.Client
                 txtMessage.Text = txtMessage.Text.Insert(pos, Environment.NewLine);
                 txtMessage.SelectionStart = pos + Environment.NewLine.Length;
                 e.SuppressKeyPress = true;
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Escape && editingMessage != null)
+            {
+                CancelEditing();
                 e.Handled = true;
             }
         }
@@ -840,6 +869,8 @@ namespace Messenger.Client
 
             // Время
             string timeStr = msg.SentAt.ToString("HH:mm");
+            if (msg.EditedAt.HasValue)
+                timeStr += " (ред.)";
             using (var brush = new SolidBrush(Color.Gray))
             {
                 SizeF timeSize = e.Graphics.MeasureString(timeStr, messageTimeFont);
@@ -993,6 +1024,85 @@ namespace Messenger.Client
             }
         }
 
+        private void StartEditingMessage(Shared.Message msg)
+        {
+            if (msg.SenderId != currentUser.Id && !currentUser.IsAdmin) return;
+
+            editingMessage = msg;
+            originalMessageText = msg.Text;
+            txtMessage.Text = msg.Text;
+            txtMessage.Focus();
+            txtMessage.Select(txtMessage.Text.Length, 0);
+
+            // Изменяем внешний вид кнопки
+            btnSend.Text = "✎ Сохранить";
+            btnSend.BackColor = Color.FromArgb(76, 175, 80);
+            btnSend.ForeColor = Color.White;
+
+            // Показываем подсказку (если есть lblEditingHint)
+            if (lblEditingHint != null)
+            {
+                lblEditingHint.Visible = true;
+                lblEditingHint.Text = "Редактирование сообщения (Esc – отмена)";
+            }
+        }
+
+        private void CancelEditing()
+        {
+            editingMessage = null;
+            txtMessage.Text = "";
+            btnSend.Text = "Отправить";
+            btnSend.BackColor = Color.FromArgb(0, 229, 255);
+            btnSend.ForeColor = Color.Black;
+            if (lblEditingHint != null) lblEditingHint.Visible = false;
+        }
+
+        private void SendOrEdit()
+        {
+            if (editingMessage != null)
+            {
+                string newText = txtMessage.Text.Trim();
+                if (string.IsNullOrEmpty(newText)) return;
+
+                if (newText == originalMessageText)
+                {
+                    CancelEditing();
+                    return;
+                }
+
+                var data = new Dictionary<string, object>
+        {
+            { "messageId", editingMessage.Id },
+            { "newText", newText }
+        };
+                networkClient.SendPacket(new NetworkPacket
+                {
+                    Command = Shared.CommandType.EditMessage,
+                    Data = data
+                });
+                CancelEditing(); // интерфейс сбросим, обновление придёт через MessageEdited
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(txtMessage.Text) || currentChat == null) return;
+                var msg = new Shared.Message
+                {
+                    ChatId = currentChat.Id,
+                    SenderId = currentUser.Id,
+                    SenderName = currentUser.FullName,
+                    Text = txtMessage.Text.Trim(),
+                    SentAt = DateTime.Now
+                };
+                networkClient.SendPacket(new NetworkPacket
+                {
+                    Command = Shared.CommandType.SendMessage,
+                    UserId = currentUser.Id,
+                    Data = msg
+                });
+                txtMessage.Clear();
+            }
+        }
+
         private void HandleMessageDeleted(int messageId)
         {
             foreach (var kv in messages)
@@ -1008,6 +1118,24 @@ namespace Messenger.Client
                         DisplayMessages();
                     }
                     break;
+                }
+            }
+        }
+
+        private void HandleMessageEdited(Shared.Message editedMsg)
+        {
+            if (messages.ContainsKey(editedMsg.ChatId))
+            {
+                var list = messages[editedMsg.ChatId];
+                var oldMsg = list.FirstOrDefault(m => m.Id == editedMsg.Id);
+                if (oldMsg != null)
+                {
+                    oldMsg.Text = editedMsg.Text;
+                    oldMsg.EditedAt = editedMsg.EditedAt;
+                    if (currentChat?.Id == editedMsg.ChatId)
+                    {
+                        DisplayMessages(); // перерисовываем список
+                    }
                 }
             }
         }
@@ -1172,6 +1300,15 @@ namespace Messenger.Client
             using (var form = new ViewParticipantsForm(currentChat.Id, currentUser.Id, networkClient))
             {
                 form.ShowDialog();
+            }
+        }
+
+        private void MainForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape && editingMessage != null)
+            {
+                CancelEditing();
+                e.Handled = true;
             }
         }
     }
